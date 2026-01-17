@@ -37,43 +37,45 @@ export function NotificationsPage() {
   });
 
   return (
-    <div className="space-y-3">
-      <div>
-        <h1 className="text-lg font-semibold">Notifications</h1>
-        <p className="text-sm text-[var(--muted)]">
-          Invitations and activity updates.
-        </p>
-      </div>
+    <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="space-y-3">
+        <div>
+          <h1 className="text-lg font-semibold">Notifications</h1>
+          <p className="text-sm text-(--muted)">
+            Invitations and activity updates.
+          </p>
+        </div>
 
-      {isLoading && <div className="text-sm text-[var(--muted)]">Loading…</div>}
+        {isLoading && <div className="text-sm text-(--muted)">Loading…</div>}
 
-      <div className="space-y-2">
-        {(data ?? []).map((n) => (
-          <Card key={n.$id} className="p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="text-sm font-semibold">
-                  {n.title ?? "Notification"}
+        <div className="space-y-2">
+          {(data ?? []).map((n) => (
+            <Card key={n.$id} className="p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold">
+                    {n.title ?? "Notification"}
+                  </div>
+                  <div className="text-sm text-(--muted) mt-1">
+                    {n.body ?? ""}
+                  </div>
+                  <div className="text-xs text-(--muted) mt-2">
+                    {new Date(n.$createdAt).toLocaleString()}
+                  </div>
                 </div>
-                <div className="text-sm text-[var(--muted)] mt-1">
-                  {n.body ?? ""}
-                </div>
-                <div className="text-xs text-[var(--muted)] mt-2">
-                  {new Date(n.$createdAt).toLocaleString()}
-                </div>
+                {!n.is_read && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => markRead.mutate(n.$id)}
+                  >
+                    Mark read
+                  </Button>
+                )}
               </div>
-              {!n.is_read && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => markRead.mutate(n.$id)}
-                >
-                  Mark read
-                </Button>
-              )}
-            </div>
-          </Card>
-        ))}
+            </Card>
+          ))}
+        </div>
       </div>
     </div>
   );

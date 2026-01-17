@@ -27,8 +27,9 @@ export type ContextMenuAction =
 interface Props {
   x: number;
   y: number;
+  targetId?: string;
   onClose: () => void;
-  onAction: (action: ContextMenuAction) => void;
+  queueOp: (op: any) => void;
   targetType?: string;
   isLocked?: boolean;
   isVisible?: boolean;
@@ -37,13 +38,72 @@ interface Props {
 export function ContextMenu({
   x,
   y,
+  targetId,
   onClose,
-  onAction,
+  queueOp,
   targetType,
   isLocked,
   isVisible,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
+
+  const handleAction = (action: ContextMenuAction) => {
+    if (!targetId && action !== "group") {
+      onClose();
+      return;
+    }
+
+    switch (action) {
+      case "delete":
+        queueOp({ op_type: "delete", object_id: targetId });
+        break;
+      case "lock":
+      case "unlock":
+        queueOp({
+          op_type: "update",
+          object_id: targetId,
+          payload_json: JSON.stringify({
+            patch: {
+              selectable: action === "unlock",
+              evented: action === "unlock",
+            },
+          }),
+        });
+        break;
+      case "visible":
+      case "hidden":
+        queueOp({
+          op_type: "update",
+          object_id: targetId,
+          payload_json: JSON.stringify({
+            patch: { visible: action === "visible" },
+          }),
+        });
+        break;
+      case "bringToFront":
+      case "sendToBack":
+        queueOp({
+          op_type: "reorder",
+          object_id: targetId,
+          payload_json: JSON.stringify({
+            action: action,
+          }),
+        });
+        break;
+      case "duplicate":
+        // This might need more logic to clone the object,
+        // for now just placeholder or we can implement basic copy
+        queueOp({
+          op_type: "add",
+          payload_json: JSON.stringify({
+            type: "duplicate",
+            source_id: targetId,
+          }),
+        });
+        break;
+    }
+    onClose();
+  };
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -65,10 +125,10 @@ export function ContextMenu({
   return createPortal(
     <div
       ref={ref}
-      className="fixed z-50 w-56 rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100 p-1 flex flex-col gap-1"
+      className="fixed z-50 w-56 rounded-xl border border-(--border) bg-(--card) shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100 p-1 flex flex-col gap-1"
       style={style}
     >
-      <div className="px-2 py-1.5 text-xs font-semibold text-[var(--muted)] border-b border-[var(--border)] mb-1">
+      <div className="px-2 py-1.5 text-xs font-semibold text-(--muted) border-b border-(--border) mb-1">
         {targetType
           ? `${targetType.charAt(0).toUpperCase() + targetType.slice(1)}`
           : "Selection"}
@@ -77,40 +137,40 @@ export function ContextMenu({
       <MenuItem
         icon={<Copy size={16} />}
         label="Duplicate"
-        onClick={() => onAction("duplicate")}
+        onClick={() => handleAction("duplicate")}
       />
       <MenuItem
         icon={<Trash2 size={16} />}
         label="Delete"
-        onClick={() => onAction("delete")}
+        onClick={() => handleAction("delete")}
         shortcut="Del"
         className="text-red-400 hover:text-red-400 hover:bg-red-500/10"
       />
 
-      <div className="h-px bg-[var(--border)] my-0.5" />
+      <div className="h-px bg-(--border) my-0.5" />
 
       <MenuItem
         icon={isLocked ? <Unlock size={16} /> : <Lock size={16} />}
         label={isLocked ? "Unlock" : "Lock"}
-        onClick={() => onAction(isLocked ? "unlock" : "lock")}
+        onClick={() => handleAction(isLocked ? "unlock" : "lock")}
       />
       <MenuItem
         icon={isVisible ? <EyeOff size={16} /> : <Eye size={16} />}
         label={isVisible ? "Hide" : "Show"}
-        onClick={() => onAction(isVisible ? "hidden" : "visible")}
+        onClick={() => handleAction(isVisible ? "hidden" : "visible")}
       />
 
-      <div className="h-px bg-[var(--border)] my-0.5" />
+      <div className="h-px bg-(--border) my-0.5" />
 
       <MenuItem
         icon={<BringToFront size={16} />}
         label="Bring to Front"
-        onClick={() => onAction("bringToFront")}
+        onClick={() => handleAction("bringToFront")}
       />
       <MenuItem
         icon={<SendToBack size={16} />}
         label="Send to Back"
-        onClick={() => onAction("sendToBack")}
+        onClick={() => handleAction("sendToBack")}
       />
     </div>,
     document.body,
@@ -142,9 +202,7 @@ function MenuItem({
         <span>{label}</span>
       </div>
       {shortcut && (
-        <span className="text-xs text-[var(--muted)] font-mono">
-          {shortcut}
-        </span>
+        <span className="text-xs text-(--muted) font-mono">{shortcut}</span>
       )}
     </button>
   );

@@ -12,7 +12,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <QueryClientProvider client={qc}>
       <AuthProvider>
-        <BrowserRouter>
+        <BrowserRouter future={{ v7_startTransition: true }}>
           <App />
         </BrowserRouter>
       </AuthProvider>

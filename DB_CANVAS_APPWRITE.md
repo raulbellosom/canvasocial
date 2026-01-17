@@ -163,6 +163,10 @@ Proyecto de canvas dentro de un workspace.
 | created_by       | String  |   64 |    ✅    |         |  ❌   |
 | snapshot_file_id | String  |   64 |    ❌    |         |  ❌   |
 | canvas_json      | String  | 2000 |    ✅    |         |  ❌   |
+| width            | Integer |    - |    ❌    | 1280    |  ❌   |
+| height           | Integer |    - |    ❌    | 720     |  ❌   |
+| bg_color         | String  |    7 |    ❌    | #ffffff |  ❌   |
+| bg_file_id       | String  |   64 |    ❌    |         |  ❌   |
 | is_public        | Boolean |    - |    ❌    | false   |  ❌   |
 | enabled          | Boolean |    - |    ❌    | true    |  ❌   |
 
@@ -238,6 +242,7 @@ Operaciones del canvas (event sourcing ligero) para colaboración en tiempo real
 - `update`
 - `delete`
 - `reorder`
+- `meta`
 
 > **Payload JSON Structure:**
 >

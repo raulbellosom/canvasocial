@@ -14,20 +14,20 @@ export function AppShell() {
   useRealtimeNotifications();
 
   return (
-    <div className="min-h-dvh grid grid-rows-[auto,1fr]">
-      <header className="sticky top-0 z-50 border-b border-[var(--border)] bg-[var(--bg)]/80 backdrop-blur-md">
+    <div className="h-dvh grid grid-rows-[auto,1fr] overflow-hidden">
+      <header className="shrink-0 border-b border-(--border) bg-(--bg)/80 backdrop-blur-md">
         <div className="mx-auto max-w-7xl px-4 h-16 flex items-center justify-between">
           {/* Logo & Brand */}
           <div className="flex items-center gap-3">
             <NavLink to="/" className="flex items-center gap-3 group">
-              <div className="size-9 rounded-xl bg-gradient-to-br from-[var(--accent)] to-violet-600 grid place-items-center text-white font-bold shadow-lg group-hover:shadow-[var(--accent)]/50 transition-shadow">
+              <div className="size-9 rounded-xl bg-linear-to-br from-(--accent) to-violet-600 grid place-items-center text-white font-bold shadow-lg group-hover:shadow-(--accent)/50 transition-shadow">
                 C
               </div>
               <div className="flex flex-col">
                 <span className="text-sm font-bold tracking-tight">
                   Canvas Social
                 </span>
-                <span className="text-[10px] text-[var(--muted)] font-medium">
+                <span className="text-[10px] text-(--muted) font-medium">
                   BETA
                 </span>
               </div>
@@ -39,7 +39,7 @@ export function AppShell() {
             <NavLink
               to="/"
               className={({ isActive }) =>
-                `px-4 py-2 rounded-full text-sm font-medium transition-all ${isActive ? "bg-white/10 text-white shadow-inner" : "text-[var(--muted)] hover:text-[var(--fg)] hover:bg-white/5"}`
+                `px-4 py-2 rounded-full text-sm font-medium transition-all ${isActive ? "bg-white/10 text-white shadow-inner" : "text-(--muted) hover:text-(--fg) hover:bg-white/5"}`
               }
             >
               Workspaces
@@ -52,12 +52,12 @@ export function AppShell() {
               variant="ghost"
               size="icon"
               onClick={toggle}
-              className="rounded-full text-[var(--muted)] hover:text-[var(--fg)]"
+              className="rounded-full text-(--muted) hover:text-(--fg)"
             >
               {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
             </Button>
 
-            <div className="h-6 w-px bg-[var(--border)] mx-1" />
+            <div className="h-6 w-px bg-(--border) mx-1" />
 
             <NotificationsPopover />
             <UserMenu />
@@ -65,7 +65,7 @@ export function AppShell() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-7xl px-4 py-6">
+      <main className="flex-1 min-h-0 relative">
         <Outlet />
       </main>
     </div>

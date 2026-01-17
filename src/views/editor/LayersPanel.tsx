@@ -11,6 +11,8 @@ import {
   Trash2,
   ArrowUp,
   ArrowDown,
+  ChevronRight,
+  ChevronDown,
 } from "lucide-react";
 import { CanvasLayer } from "./types";
 import { ID } from "appwrite";
@@ -21,6 +23,7 @@ interface LayersPanelProps {
   activeLayerId: string;
   setActiveLayerId: (id: string) => void;
   queueOp: (op: any) => void;
+  selectedShapeId?: string | null;
 }
 
 export function LayersPanel({
@@ -29,13 +32,52 @@ export function LayersPanel({
   activeLayerId,
   setActiveLayerId,
   queueOp,
+  selectedShapeId,
 }: LayersPanelProps) {
   const [isOpen, setIsOpen] = useState(() => {
     if (typeof window !== "undefined") {
-      return window.innerWidth >= 768; // Open by default only on Desktop
+      return window.innerWidth >= 768;
     }
     return false;
   });
+  const [collapsedLayers, setCollapsedLayers] = useState<Set<string>>(
+    new Set(),
+  );
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingValue, setEditingValue] = useState("");
+
+  const toggleLayerCollapse = (layerId: string) => {
+    setCollapsedLayers((prev) => {
+      const next = new Set(prev);
+      if (next.has(layerId)) {
+        next.delete(layerId);
+      } else {
+        next.add(layerId);
+      }
+      return next;
+    });
+  };
+
+  const startRename = (id: string, currentName: string) => {
+    setEditingId(id);
+    setEditingValue(currentName);
+  };
+
+  const confirmRename = (isLayer: boolean) => {
+    if (!editingId || !editingValue.trim()) {
+      setEditingId(null);
+      return;
+    }
+    queueOp({
+      op_type: "update",
+      object_id: editingId,
+      payload_json: JSON.stringify({
+        type: isLayer ? "layer" : "object",
+        patch: { name: editingValue.trim() },
+      }),
+    });
+    setEditingId(null);
+  };
 
   const addLayer = () => {
     const id = ID.unique();
@@ -117,7 +159,7 @@ export function LayersPanel({
 
   if (!isOpen) {
     return (
-      <div className="absolute top-4 right-4 z-10">
+      <div className="fixed top-20 right-4 z-10">
         <Button
           size="sm"
           className="h-10 w-10 bg-black/40 backdrop-blur-md border border-white/10 text-white hover:bg-black/60 rounded-xl"
@@ -198,7 +240,7 @@ export function LayersPanel({
   const sorted = [...layers].sort((a, b) => b.zIndex - a.zIndex);
 
   return (
-    <div className="absolute top-4 right-4 z-10 w-72 bg-black/50 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl flex flex-col max-h-[calc(100vh-2rem)] transition-all">
+    <div className="fixed top-20 right-4 z-10 w-72 bg-black/50 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl flex flex-col max-h-[calc(100vh-120px)] transition-all">
       <div className="flex items-center justify-between p-4 border-b border-white/5">
         <div className="flex items-center gap-2 font-medium text-sm text-white/90">
           <Layers size={16} className="text-indigo-400" /> Layers
@@ -231,6 +273,20 @@ export function LayersPanel({
               }`}
             >
               <div className="flex items-center gap-2 overflow-hidden">
+                {/* Collapse Toggle */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleLayerCollapse(layer.id);
+                  }}
+                  className="p-0.5 rounded hover:bg-white/10 text-white/40 hover:text-white transition"
+                >
+                  {collapsedLayers.has(layer.id) ? (
+                    <ChevronRight size={12} />
+                  ) : (
+                    <ChevronDown size={12} />
+                  )}
+                </button>
                 <div className="flex flex-col gap-0.5">
                   <button
                     disabled={index === 0}
@@ -253,11 +309,31 @@ export function LayersPanel({
                     <ArrowDown size={10} />
                   </button>
                 </div>
-                <span
-                  className={`truncate max-w-[100px] font-medium ${activeLayerId === layer.id ? "text-indigo-300" : "text-zinc-400 group-hover:text-zinc-200"}`}
-                >
-                  {layer.name}
-                </span>
+                {editingId === layer.id ? (
+                  <input
+                    type="text"
+                    value={editingValue}
+                    onChange={(e) => setEditingValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") confirmRename(true);
+                      if (e.key === "Escape") setEditingId(null);
+                    }}
+                    onBlur={() => confirmRename(true)}
+                    autoFocus
+                    className="bg-white/10 border border-white/20 rounded px-1 py-0.5 text-sm text-white w-24 outline-none focus:border-indigo-400"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                ) : (
+                  <span
+                    className={`truncate max-w-[100px] font-medium cursor-text ${activeLayerId === layer.id ? "text-indigo-300" : "text-zinc-400 group-hover:text-zinc-200"}`}
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      startRename(layer.id, layer.name);
+                    }}
+                  >
+                    {layer.name}
+                  </span>
+                )}
               </div>
 
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -294,127 +370,163 @@ export function LayersPanel({
               </div>
             </div>
 
-            {/* Objects List */}
-            {layerObjects[layer.id] && layerObjects[layer.id].length > 0 && (
-              <div className="pl-6 mt-1 space-y-0.5 border-l border-white/5 ml-4">
-                {layerObjects[layer.id].map((obj: any, idx) => {
-                  const isDetailed = activeLayerId === layer.id; // Show details if layer active
-                  return (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between text-xs text-zinc-300 hover:text-white px-2 py-1.5 rounded hover:bg-white/5 cursor-pointer group/item border border-transparent hover:border-white/5 transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (canvas) {
-                          canvas.setActiveObject(obj);
-                          canvas.requestRenderAll();
-                        }
-                      }}
-                    >
-                      <div className="flex items-center gap-2 overflow-hidden">
-                        <span className="opacity-50 text-[10px] w-4 text-center">
-                          {idx + 1}
-                        </span>
-                        <span className="truncate max-w-[80px]">
-                          {obj.type}
-                        </span>
-                      </div>
+            {/* Objects List - Only show when layer is not collapsed */}
+            {!collapsedLayers.has(layer.id) &&
+              layerObjects[layer.id] &&
+              layerObjects[layer.id].length > 0 && (
+                <div className="pl-6 mt-1 space-y-0.5 border-l border-white/5 ml-4">
+                  {layerObjects[layer.id].map((obj: any, idx) => {
+                    const isDetailed = activeLayerId === layer.id;
+                    const isSelected = selectedShapeId === obj.name;
+                    const shapeId = obj.name || `shape_${idx}`;
+                    return (
+                      <div
+                        key={idx}
+                        className={`flex items-center justify-between text-xs px-2 py-1.5 rounded cursor-pointer group/item border transition-colors ${
+                          isSelected
+                            ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/30"
+                            : "text-zinc-300 hover:text-white hover:bg-white/5 border-transparent hover:border-white/5"
+                        }`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (canvas) {
+                            canvas.setActiveObject(obj);
+                            canvas.requestRenderAll();
+                          }
+                        }}
+                      >
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          <span className="opacity-50 text-[10px] w-4 text-center">
+                            {idx + 1}
+                          </span>
+                          {editingId === shapeId ? (
+                            <input
+                              type="text"
+                              value={editingValue}
+                              onChange={(e) => setEditingValue(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") confirmRename(false);
+                                if (e.key === "Escape") setEditingId(null);
+                              }}
+                              onBlur={() => confirmRename(false)}
+                              autoFocus
+                              className="bg-white/10 border border-white/20 rounded px-1 py-0.5 text-xs text-white w-20 outline-none focus:border-indigo-400"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          ) : (
+                            <span
+                              className="truncate max-w-[80px] cursor-text"
+                              onDoubleClick={(e) => {
+                                e.stopPropagation();
+                                startRename(shapeId, obj.name || obj.type);
+                              }}
+                            >
+                              {obj.name || obj.type}
+                            </span>
+                          )}
+                        </div>
 
-                      <div className="flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity">
-                        {/* Object Controls */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            obj.bringForward();
-                            canvas?.requestRenderAll();
-                            // TODO: sync Z order
-                            queueOp({
-                              op_type: "reorder",
-                              object_id: obj.name,
-                              payload_json: JSON.stringify({
-                                index: canvas?.getObjects().indexOf(obj),
-                              }),
-                            });
-                          }}
-                          className="p-1 hover:bg-white/20 rounded text-white/50 hover:text-white"
-                          title="Bring Forward"
-                        >
-                          <ArrowUp size={10} />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            obj.sendBackwards();
-                            canvas?.requestRenderAll();
-                            queueOp({
-                              op_type: "reorder",
-                              object_id: obj.name,
-                              payload_json: JSON.stringify({
-                                index: canvas?.getObjects().indexOf(obj),
-                              }),
-                            });
-                          }}
-                          className="p-1 hover:bg-white/20 rounded text-white/50 hover:text-white"
-                          title="Send Backward"
-                        >
-                          <ArrowDown size={10} />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            obj.set({ visible: !obj.visible });
-                            obj.setCoords();
-                            canvas?.requestRenderAll();
-                            queueOp({
-                              op_type: "update",
-                              object_id: obj.name,
-                              payload_json: JSON.stringify({
-                                patch: { visible: obj.visible },
-                              }),
-                            });
-                          }}
-                          className={`p-1 hover:bg-white/20 rounded ${obj.visible ? "text-white/50" : "text-white/30"}`}
-                        >
-                          {obj.visible ? (
-                            <Eye size={10} />
-                          ) : (
-                            <EyeOff size={10} />
-                          )}
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            obj.set({
-                              selectable: !obj.lockMovementX,
-                              evented: !obj.lockMovementX,
-                            });
-                            // Fabric lock implies lockMovementX/Y etc.
-                            // Simplified: just toggle 'selectable'
-                            const locked = !obj.selectable;
-                            obj.set({ selectable: !locked, evented: !locked });
-                            canvas?.requestRenderAll();
-                            queueOp({
-                              op_type: "update",
-                              object_id: obj.name,
-                              payload_json: JSON.stringify({
-                                patch: { locked: locked },
-                              }),
-                            });
-                          }}
-                          className={`p-1 hover:bg-white/20 rounded ${!obj.selectable ? "text-amber-400" : "text-white/50"}`}
-                        >
-                          {!obj.selectable ? (
-                            <Lock size={10} />
-                          ) : (
-                            <Unlock size={10} />
-                          )}
-                        </button>
+                        <div className="flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity">
+                          {/* Object Controls */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (canvas) {
+                                canvas.bringObjectForward(obj);
+                                canvas.requestRenderAll();
+                                queueOp({
+                                  op_type: "reorder",
+                                  object_id: obj.name,
+                                  payload_json: JSON.stringify({
+                                    index: canvas.getObjects().indexOf(obj),
+                                  }),
+                                });
+                              }
+                            }}
+                            className="p-1 hover:bg-white/20 rounded text-white/50 hover:text-white"
+                            title="Bring Forward"
+                          >
+                            <ArrowUp size={10} />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (canvas) {
+                                canvas.sendObjectBackwards(obj);
+                                canvas.requestRenderAll();
+                                queueOp({
+                                  op_type: "reorder",
+                                  object_id: obj.name,
+                                  payload_json: JSON.stringify({
+                                    index: canvas.getObjects().indexOf(obj),
+                                  }),
+                                });
+                              }
+                            }}
+                            className="p-1 hover:bg-white/20 rounded text-white/50 hover:text-white"
+                            title="Send Backward"
+                          >
+                            <ArrowDown size={10} />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              obj.set({ visible: !obj.visible });
+                              obj.setCoords();
+                              canvas?.requestRenderAll();
+                              queueOp({
+                                op_type: "update",
+                                object_id: obj.name,
+                                payload_json: JSON.stringify({
+                                  patch: { visible: obj.visible },
+                                }),
+                              });
+                            }}
+                            className={`p-1 hover:bg-white/20 rounded ${obj.visible ? "text-white/50" : "text-white/30"}`}
+                          >
+                            {obj.visible ? (
+                              <Eye size={10} />
+                            ) : (
+                              <EyeOff size={10} />
+                            )}
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              obj.set({
+                                selectable: !obj.lockMovementX,
+                                evented: !obj.lockMovementX,
+                              });
+                              // Fabric lock implies lockMovementX/Y etc.
+                              // Simplified: just toggle 'selectable'
+                              const locked = !obj.selectable;
+                              obj.set({
+                                selectable: !locked,
+                                evented: !locked,
+                              });
+                              canvas?.requestRenderAll();
+                              queueOp({
+                                op_type: "update",
+                                object_id: obj.name,
+                                payload_json: JSON.stringify({
+                                  patch: { locked: locked },
+                                }),
+                              });
+                            }}
+                            className={`p-1 hover:bg-white/20 rounded ${!obj.selectable ? "text-amber-400" : "text-white/50"}`}
+                          >
+                            {!obj.selectable ? (
+                              <Lock size={10} />
+                            ) : (
+                              <Unlock size={10} />
+                            )}
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                    );
+                  })}
+                </div>
+              )}
           </div>
         ))}
         {layers.length === 0 && (

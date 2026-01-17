@@ -16,6 +16,17 @@ import {
   Trash2,
   Image as ImageIcon,
   Hand,
+  ChevronLeft,
+  ChevronRight,
+  Paintbrush,
+  CircleDot,
+  Settings,
+  Maximize,
+  Target,
+  Plus,
+  Minus,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import { LayersPanel } from "./LayersPanel";
 import { ContextMenu, ContextMenuAction } from "./ContextMenu";
@@ -44,6 +55,20 @@ export function CanvasEditorPage() {
     locked?: boolean;
     visibleLayer?: boolean;
   } | null>(null);
+  const [toolbarCollapsed, setToolbarCollapsed] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  const [pendingSettings, setPendingSettings] = useState<{
+    width: number;
+    height: number;
+    bgColor: string;
+  } | null>(null);
+
+  const [zoom, setZoom] = useState(1);
+  const isInitialized = useRef(false);
+  const isDrawingShape = useRef(false);
+  const shapeBeingDrawn = useRef<fabric.Object | null>(null);
+  const startPoint = useRef<{ x: number; y: number } | null>(null);
 
   // Auto-select first layer if active is missing
   useEffect(() => {
@@ -56,26 +81,38 @@ export function CanvasEditorPage() {
 
   // Initialize Fabric
   useEffect(() => {
-    if (!canvasRef.current || !containerRef.current || fabricCanvas) return;
+    if (!canvasRef.current || !containerRef.current || isInitialized.current)
+      return;
+
+    console.log("Initializing Fabric Canvas...");
+    isInitialized.current = true;
 
     const canvas = new fabric.Canvas(canvasRef.current, {
-      width: containerRef.current.clientWidth,
-      height: containerRef.current.clientHeight,
-      backgroundColor: "#f3f4f6",
+      width: state?.width || 1920,
+      height: state?.height || 1080,
+      backgroundColor: state?.bgColor || "#ffffff",
       selection: true,
     });
 
     setFabricCanvas(canvas);
 
-    // Resize logic
-    const ro = new ResizeObserver(() => {
-      if (!containerRef.current) return;
-      canvas.setDimensions({
-        width: containerRef.current.clientWidth,
-        height: containerRef.current.clientHeight,
-      });
-    });
-    ro.observe(containerRef.current);
+    const updateZoomState = () => {
+      setZoom(canvas.getZoom());
+    };
+
+    canvas.on("mouse:wheel", updateZoomState);
+
+    // Initial centering if possible
+    if (containerRef.current) {
+      const vpt = canvas.viewportTransform;
+      if (vpt) {
+        vpt[4] =
+          (containerRef.current.clientWidth - (state?.width || 1920)) / 2;
+        vpt[5] =
+          (containerRef.current.clientHeight - (state?.height || 1080)) / 2;
+        canvas.requestRenderAll();
+      }
+    }
 
     // Zoom Logic
     canvas.on("mouse:wheel", function (opt) {
@@ -91,7 +128,121 @@ export function CanvasEditorPage() {
       }
     });
 
-    // Panning Logic (Hand Tool)
+    // Prevent browser context menu on canvas
+    canvasRef.current?.addEventListener("contextmenu", (e) =>
+      e.preventDefault(),
+    );
+
+    // Long-press for mobile context menu
+    let longPressTimer: ReturnType<typeof setTimeout> | null = null;
+    let touchStartPos = { x: 0, y: 0 };
+
+    const handleTouchStart = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      touchStartPos = { x: touch.clientX, y: touch.clientY };
+
+      longPressTimer = setTimeout(() => {
+        // Find object at touch position
+        const pointer = canvas.getPointer(e as any);
+        const target = canvas.findTarget(e as any) as any;
+
+        if (target) {
+          canvas.setActiveObject(target);
+          canvas.requestRenderAll();
+          setContextMenu({
+            x: touch.clientX,
+            y: touch.clientY,
+            visible: true,
+            targetId: target.name,
+            type: target.type,
+            locked: !target.evented,
+            visibleLayer: target.visible,
+          });
+        }
+      }, 500);
+    };
+
+    const handleTouchEnd = () => {
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      const dx = touch.clientX - touchStartPos.x;
+      const dy = touch.clientY - touchStartPos.y;
+      // Cancel long press if moved too far (10px threshold)
+      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+        if (longPressTimer) {
+          clearTimeout(longPressTimer);
+          longPressTimer = null;
+        }
+      }
+    };
+
+    canvasRef.current?.addEventListener("touchstart", handleTouchStart);
+    canvasRef.current?.addEventListener("touchend", handleTouchEnd);
+    canvasRef.current?.addEventListener("touchmove", handleTouchMove);
+
+    return () => {
+      console.log("Disposing Fabric Canvas...");
+      canvas.dispose();
+      isInitialized.current = false;
+      setFabricCanvas(null);
+    };
+  }, [canvasRef]);
+
+  // Initial resize observer for fit-to-screen
+  useEffect(() => {
+    if (!fabricCanvas || !containerRef.current) return;
+    const canvas = fabricCanvas;
+
+    const performAutoZoom = () => {
+      if (!containerRef.current || !canvas) return;
+      const containerWidth = containerRef.current.clientWidth;
+      const containerHeight = containerRef.current.clientHeight;
+      const padding = 60;
+      const availableW = containerWidth - padding;
+      const availableH = containerHeight - padding;
+
+      const scaleX = availableW / (state?.width || 1280);
+      const scaleY = availableH / (state?.height || 720);
+      const scale = Math.min(scaleX, scaleY, 1);
+
+      canvas.setZoom(scale);
+      const vpt = canvas.viewportTransform;
+      if (vpt) {
+        vpt[4] = (containerWidth - (state?.width || 1280) * scale) / 2;
+        vpt[5] = (containerHeight - (state?.height || 720) * scale) / 2;
+      }
+      canvas.requestRenderAll();
+    };
+
+    const ro = new ResizeObserver(performAutoZoom);
+    ro.observe(containerRef.current);
+
+    return () => {
+      ro.disconnect();
+    };
+  }, [canvasRef, fabricCanvas, state?.width, state?.height, state?.bgColor]);
+
+  useEffect(() => {
+    if (!fabricCanvas) return;
+    const canvas = fabricCanvas;
+
+    // Sync Background Color independently
+    if (state?.bgColor && canvas.backgroundColor !== state.bgColor) {
+      canvas.set({ backgroundColor: state.bgColor });
+      canvas.requestRenderAll();
+    }
+  }, [fabricCanvas, state?.bgColor]);
+
+  useEffect(() => {
+    if (!fabricCanvas) return;
+    const canvas = fabricCanvas;
+
     // Panning Logic (Hand Tool)
     canvas.on("mouse:down", function (opt) {
       const evt = opt.e as MouseEvent;
@@ -125,21 +276,99 @@ export function CanvasEditorPage() {
         target.selection = false;
         target.lastPosX = evt.clientX;
         target.lastPosY = evt.clientY;
+        return;
+      }
+
+      // Drawing Mode
+      if (tool === "rect" || tool === "circle") {
+        isDrawingShape.current = true;
+        const pointer = canvas.getPointer(evt);
+        startPoint.current = { x: pointer.x, y: pointer.y };
+
+        const id = ID.unique();
+        if (tool === "rect") {
+          const rect = new fabric.Rect({
+            left: pointer.x,
+            top: pointer.y,
+            width: 0,
+            height: 0,
+            fill: activeColor,
+            name: id,
+            strokeWidth: 0,
+          });
+          (rect as any).layerId = activeLayerId;
+          shapeBeingDrawn.current = rect;
+          canvas.add(rect);
+        } else if (tool === "circle") {
+          const circle = new fabric.Circle({
+            left: pointer.x,
+            top: pointer.y,
+            radius: 0,
+            fill: activeColor,
+            name: id,
+            strokeWidth: 0,
+          });
+          (circle as any).layerId = activeLayerId;
+          shapeBeingDrawn.current = circle;
+          canvas.add(circle);
+        }
+        canvas.selection = false;
+        return;
       }
     });
 
     canvas.on("mouse:move", function (opt) {
       const target = canvas as any;
+      const evt = opt.e as MouseEvent;
+
       if (target.isDragging) {
-        const e = opt.e as MouseEvent;
         const vpt = target.viewportTransform;
         if (vpt) {
-          vpt[4] += e.clientX - target.lastPosX;
-          vpt[5] += e.clientY - target.lastPosY;
+          vpt[4] += evt.clientX - target.lastPosX;
+          vpt[5] += evt.clientY - target.lastPosY;
           target.requestRenderAll();
         }
-        target.lastPosX = e.clientX;
-        target.lastPosY = e.clientY;
+        target.lastPosX = evt.clientX;
+        target.lastPosY = evt.clientY;
+        return;
+      }
+
+      if (
+        isDrawingShape.current &&
+        shapeBeingDrawn.current &&
+        startPoint.current
+      ) {
+        const pointer = canvas.getPointer(evt);
+        const shape = shapeBeingDrawn.current;
+
+        if (shape.type === "rect") {
+          const left = Math.min(startPoint.current.x, pointer.x);
+          const top = Math.min(startPoint.current.y, pointer.y);
+          const width = Math.abs(startPoint.current.x - pointer.x);
+          const height = Math.abs(startPoint.current.y - pointer.y);
+
+          shape.set({ left, top, width, height });
+        } else if (shape.type === "circle") {
+          const radius =
+            Math.sqrt(
+              Math.pow(startPoint.current.x - pointer.x, 2) +
+                Math.pow(startPoint.current.y - pointer.y, 2),
+            ) / 2;
+          const left = Math.min(startPoint.current.x, pointer.x);
+          const top = Math.min(startPoint.current.y, pointer.y);
+
+          // Re-center circle correctly based on start and current pointer
+          // Or just use the diagonal as diameter
+          const centerX = (startPoint.current.x + pointer.x) / 2;
+          const centerY = (startPoint.current.y + pointer.y) / 2;
+
+          shape.set({
+            radius: radius,
+            left: centerX - radius,
+            top: centerY - radius,
+          });
+        }
+        canvas.requestRenderAll();
       }
     });
 
@@ -149,6 +378,62 @@ export function CanvasEditorPage() {
         target.setViewportTransform(target.viewportTransform);
         target.isDragging = false;
         target.selection = true;
+        return;
+      }
+
+      if (isDrawingShape.current && shapeBeingDrawn.current) {
+        const obj = shapeBeingDrawn.current;
+
+        // If it's too small, remove it (accidental click)
+        const isTooSmall =
+          (obj.type === "rect" &&
+            (obj.width || 0) < 5 &&
+            (obj.height || 0) < 5) ||
+          (obj.type === "circle" && (obj.getScaledWidth() || 0) < 5);
+
+        if (isTooSmall) {
+          canvas.remove(obj);
+        } else {
+          // Finalize and Sync
+          canvas.setActiveObject(obj);
+
+          const canvasObj: any = {
+            id: (obj as any).name,
+            type: obj.type,
+            layerId: activeLayerId,
+            z: 0,
+            visible: true,
+            locked: false,
+            updated_at: new Date().toISOString(),
+            updated_by: userId,
+            fill: obj.fill,
+            stroke: obj.stroke || "",
+            strokeWidth: obj.strokeWidth || 0,
+          };
+
+          if (obj.type === "rect") {
+            canvasObj.x = obj.left;
+            canvasObj.y = obj.top;
+            canvasObj.w = obj.width;
+            canvasObj.h = obj.height;
+          } else if (obj.type === "circle") {
+            canvasObj.left = obj.left;
+            canvasObj.top = obj.top;
+            canvasObj.radius = (obj as fabric.Circle).radius;
+          }
+
+          queueOp({
+            op_type: "add",
+            object_id: (obj as any).name,
+            payload_json: JSON.stringify({ object: canvasObj }),
+          });
+        }
+
+        isDrawingShape.current = false;
+        shapeBeingDrawn.current = null;
+        startPoint.current = null;
+        canvas.selection = true;
+        canvas.requestRenderAll();
       }
     });
 
@@ -231,10 +516,9 @@ export function CanvasEditorPage() {
     });
 
     return () => {
-      canvas.dispose();
-      ro.disconnect();
+      // Event listeners are cleaned up by canvas.dispose() in the main init effect
     };
-  }, []);
+  }, [fabricCanvas]);
 
   // Sync Initial State
   useEffect(() => {
@@ -246,7 +530,7 @@ export function CanvasEditorPage() {
       // Apply layer visibility/locks
       state.layers?.forEach((layer) => {
         fabricCanvas.getObjects().forEach((o: any) => {
-          if (o.layerId === layer.id) {
+          if ((o as any).layerId === layer.id) {
             o.set({
               visible: layer.visible,
               selectable: !layer.locked,
@@ -269,12 +553,15 @@ export function CanvasEditorPage() {
     if (op.op_type === "add") {
       const obj = payload.object;
       if (!obj) return;
-      if (fabricCanvas.getObjects().find((o: any) => o.name === obj.id)) return; // Already exists
+      if (
+        fabricCanvas.getObjects().find((o: any) => (o as any).name === obj.id)
+      )
+        return; // Already exists
       addFabricObject(fabricCanvas, obj, false);
     } else if (op.op_type === "update") {
       const obj = fabricCanvas
         .getObjects()
-        .find((o: any) => o.name === op.object_id);
+        .find((o: any) => (o as any).name === op.object_id);
       if (obj && payload.patch) {
         obj.set(payload.patch);
         obj.setCoords();
@@ -283,7 +570,7 @@ export function CanvasEditorPage() {
     } else if (op.op_type === "delete") {
       const obj = fabricCanvas
         .getObjects()
-        .find((o: any) => o.name === op.object_id);
+        .find((o: any) => (o as any).name === op.object_id);
       if (obj) {
         fabricCanvas.remove(obj);
         fabricCanvas.requestRenderAll();
@@ -291,7 +578,7 @@ export function CanvasEditorPage() {
     } else if (op.op_type === "reorder") {
       const obj = fabricCanvas
         .getObjects()
-        .find((o: any) => o.name === op.object_id);
+        .find((o: any) => (o as any).name === op.object_id);
       if (obj && typeof payload.index === "number") {
         (obj as any).moveTo(payload.index);
         fabricCanvas.requestRenderAll();
@@ -299,94 +586,14 @@ export function CanvasEditorPage() {
     }
   }, [lastRemoteOp, fabricCanvas]);
 
-  const addRect = () => {
-    if (!fabricCanvas || !userId) return;
-    const id = ID.unique();
-    const rect = new fabric.Rect({
-      left: 100,
-      top: 100,
-      width: 100,
-      height: 100,
-      fill: "red",
-      name: id,
-    });
-    (rect as any).layerId = activeLayerId; // Assign Layer
-    fabricCanvas.add(rect);
-    fabricCanvas.setActiveObject(rect);
-
-    // Queue Add Op
-    const canvasObj = {
-      id,
-      type: "rect",
-      layerId: activeLayerId,
-      z: 0,
-      visible: true,
-      locked: false,
-      updated_at: new Date().toISOString(),
-      updated_by: userId,
-      x: 100,
-      y: 100,
-      w: 100,
-      h: 100,
-      fill: "red",
-      stroke: "black",
-      strokeWidth: 0,
-      rotation: 0,
-    };
-    queueOp({
-      op_type: "add",
-      object_id: id,
-      payload_json: JSON.stringify({ object: canvasObj }),
-    });
-    setTool("select"); // Auto-switch back to select
-  };
-
-  const addCircle = () => {
-    if (!fabricCanvas || !userId) return;
-    const id = ID.unique();
-    const circle = new fabric.Circle({
-      left: 200,
-      top: 200,
-      radius: 50,
-      fill: "green",
-      name: id,
-    });
-    (circle as any).layerId = activeLayerId;
-    fabricCanvas.add(circle);
-    fabricCanvas.setActiveObject(circle);
-
-    const canvasObj = {
-      id,
-      type: "circle",
-      layerId: activeLayerId,
-      z: 0,
-      visible: true,
-      locked: false,
-      updated_at: new Date().toISOString(),
-      updated_by: userId,
-      left: 200,
-      top: 200,
-      radius: 50,
-      fill: "green",
-      stroke: "",
-      strokeWidth: 0,
-    };
-    queueOp({
-      op_type: "add",
-      object_id: id,
-      payload_json: JSON.stringify({ object: canvasObj }),
-    });
-    setTool("select");
-  };
-
   const addText = () => {
     if (!fabricCanvas || !userId) return;
     const id = ID.unique();
     const text = new fabric.IText("Hello", {
-      left: 300,
-      top: 300,
+      left: 100,
+      top: 100,
       fontFamily: "Inter, sans-serif",
-      fill: "#333",
+      fill: activeColor,
       fontSize: 24,
       name: id,
     });
@@ -403,18 +610,17 @@ export function CanvasEditorPage() {
       locked: false,
       updated_at: new Date().toISOString(),
       updated_by: userId,
-      left: 300,
-      top: 300,
+      left: 100,
+      top: 100,
       text: "Hello",
       fontSize: 24,
-      fill: "#333",
+      fill: activeColor,
     };
     queueOp({
       op_type: "add",
       object_id: id,
       payload_json: JSON.stringify({ object: canvasObj }),
     });
-    setTool("select");
   };
 
   // Toggle Drawing/Hand Mode
@@ -642,33 +848,105 @@ export function CanvasEditorPage() {
     setActiveColor(color);
     if (!fabricCanvas) return;
 
-    if (tool === "pen") {
-      if (fabricCanvas.freeDrawingBrush) {
-        fabricCanvas.freeDrawingBrush.color = color;
-      }
-    }
-
     const activeObj = fabricCanvas.getActiveObject();
     if (activeObj) {
       activeObj.set({ fill: color });
-      if (activeObj.type === "path" || activeObj.type === "pen") {
+      if (activeObj.type === "path") {
         activeObj.set({ stroke: color });
       }
       fabricCanvas.requestRenderAll();
 
-      // Queue Op
       if ((activeObj as any).name) {
-        const patch: any = { fill: color };
-        if (activeObj.type === "path" || activeObj.type === "pen") {
-          patch.stroke = color;
-        }
         queueOp({
           op_type: "update",
           object_id: (activeObj as any).name,
-          payload_json: JSON.stringify({ patch }),
+          payload_json: JSON.stringify({
+            patch: {
+              fill: color,
+              ...(activeObj.type === "path" ? { stroke: color } : {}),
+            },
+          }),
         });
       }
     }
+  };
+
+  const centerCanvas = (animate: boolean = true) => {
+    if (!fabricCanvas || !containerRef.current || !state) return;
+    const canvas = fabricCanvas;
+    const containerWidth = containerRef.current.clientWidth;
+    const containerHeight = containerRef.current.clientHeight;
+
+    const padding = 60;
+    const availableW = containerWidth - padding;
+    const availableH = containerHeight - padding;
+
+    const scaleX = availableW / state.width;
+    const scaleY = availableH / state.height;
+    const scale = Math.min(scaleX, scaleY, 1);
+
+    const targetX = (containerWidth - state.width * scale) / 2;
+    const targetY = (containerHeight - state.height * scale) / 2;
+
+    if (animate) {
+      const startZoom = canvas.getZoom();
+      const startVpt = [...(canvas.viewportTransform || [1, 0, 0, 1, 0, 0])];
+
+      fabric.util.animate({
+        startValue: 0,
+        endValue: 1,
+        duration: 500,
+        onChange: (value) => {
+          const currentZoom = startZoom + (scale - startZoom) * value;
+          const currentX = startVpt[4] + (targetX - startVpt[4]) * value;
+          const currentY = startVpt[5] + (targetY - startVpt[5]) * value;
+
+          canvas.setZoom(currentZoom);
+          const vpt = canvas.viewportTransform;
+          if (vpt) {
+            vpt[4] = currentX;
+            vpt[5] = currentY;
+          }
+          canvas.requestRenderAll();
+        },
+        easing: fabric.util.ease.easeInOutQuad,
+      });
+    } else {
+      canvas.setZoom(scale);
+      const vpt = canvas.viewportTransform;
+      if (vpt) {
+        vpt[4] = targetX;
+        vpt[5] = targetY;
+      }
+      canvas.requestRenderAll();
+    }
+  };
+
+  const resetZoom = () => {
+    if (!fabricCanvas) return;
+    fabricCanvas.setZoom(1);
+    setZoom(1);
+    fabricCanvas.requestRenderAll();
+  };
+
+  const manualZoom = (delta: number) => {
+    if (!fabricCanvas || !containerRef.current) return;
+    const canvas = fabricCanvas;
+    let newZoom = canvas.getZoom() * (1 + delta);
+
+    // Limits
+    if (newZoom > 20) newZoom = 20;
+    if (newZoom < 0.01) newZoom = 0.01;
+
+    // Zoom to center of container
+    const center = {
+      x: containerRef.current.clientWidth / 2,
+      y: containerRef.current.clientHeight / 2,
+    };
+
+    canvas.zoomToPoint(new fabric.Point(center.x, center.y), newZoom);
+    setZoom(newZoom);
+    canvas.requestRenderAll();
   };
 
   // Mobile check
@@ -683,145 +961,164 @@ export function CanvasEditorPage() {
   }, []);
 
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-[#09090b] text-foreground font-sans touch-none overscroll-none">
-      {/* Canvas Layer - touch-none is critical for PWA gestures */}
+    <div className="relative w-full h-full overflow-hidden bg-[#09090b] text-foreground font-sans touch-none overscroll-none">
+      {/* Canvas Container - Now with scroll support for large canvas */}
       <div
-        className="absolute inset-0 z-0 bg-neutral-900/50 touch-none"
+        className="flex-1 bg-zinc-900/50 overflow-hidden relative p-0 h-full"
         ref={containerRef}
       >
         <canvas ref={canvasRef} />
       </div>
 
-      {/* Floating Header (Minimal) - Padding adjustment for mobile */}
-      <div className="absolute top-4 left-4 z-10 flex items-center gap-4 pointer-events-none">
-        <div className="h-10 px-4 rounded-xl bg-black/40 backdrop-blur-md border border-white/10 flex items-center gap-3 shadow-2xl pointer-events-auto">
-          <div className="w-3 h-3 rounded-full bg-red-500" />
-          <span className="text-sm font-medium text-white/90">
-            Untitled Canvas
-          </span>
-          <span className="hidden sm:inline text-xs text-white/50 border-l border-white/10 pl-3">
-            Last saved just now
-          </span>
-        </div>
-      </div>
-
-      {/* Floating Toolbar (Left) - Adjust for mobile to be bottom-center or smaller */}
-      <div className="absolute left-4 top-1/2 -translate-y-1/2 md:left-4 md:top-1/2 md:-translate-y-1/2 z-20 flex flex-col gap-2 p-2 rounded-2xl bg-black/40 backdrop-blur-xl border border-white/10 shadow-2xl transition-all hover:bg-black/50 sm:flex hidden">
-        {/* Desktop Toolbar */}
-        <IconButton
-          active={tool === "select"}
-          onClick={() => setTool("select")}
-          icon={<MousePointer2 size={20} />}
-          label="Select"
-        />
-        <IconButton
-          active={tool === "hand"}
-          onClick={() => setTool("hand")}
-          icon={<Hand size={20} />}
-          label="Hand Tool (Pan)"
-        />
-        <div className="h-px w-8 bg-white/10 mx-auto my-1" />
-        <IconButton
-          active={tool === "rect"}
-          onClick={addRect}
-          icon={<Square size={20} />}
-          label="Rectangle"
-        />
-        <IconButton
-          active={tool === "circle"}
-          onClick={addCircle}
-          icon={<CircleIcon size={20} />}
-          label="Circle"
-        />
-        <IconButton
-          active={tool === "text"}
-          onClick={addText}
-          icon={<Type size={20} />}
-          label="Text"
-        />
-        <IconButton
-          active={tool === "pen"}
-          onClick={() => setTool("pen")}
-          icon={<Pen size={20} />}
-          label="Pen"
-        />
-        <div className="h-px w-8 bg-white/10 mx-auto my-1" />
-
-        <div className="flex flex-col gap-1 items-center">
-          <span className="text-[10px] text-zinc-500 font-medium">Fill</span>
-          <ColorPickerPopover
-            color={activeColor}
-            onChange={(c) => {
-              setActiveColor(c);
-              if (!fabricCanvas) return;
-              const activeObj = fabricCanvas.getActiveObject();
-              if (activeObj) {
-                activeObj.set({ fill: c });
-                fabricCanvas.requestRenderAll();
-                if ((activeObj as any).name) {
-                  queueOp({
-                    op_type: "update",
-                    object_id: (activeObj as any).name,
-                    payload_json: JSON.stringify({ patch: { fill: c } }),
-                  });
-                }
-              }
-            }}
-          />
-        </div>
-
-        <div className="flex flex-col gap-1 items-center">
-          <span className="text-[10px] text-zinc-500 font-medium">Stroke</span>
-          <ColorPickerPopover
-            color={activeStrokeColor}
-            onChange={(c) => {
-              setActiveStrokeColor(c);
-              if (!fabricCanvas) return;
-              const activeObj = fabricCanvas.getActiveObject();
-              if (activeObj) {
-                activeObj.set({
-                  stroke: c,
-                  strokeWidth: activeObj.strokeWidth || 2,
-                });
-                fabricCanvas.requestRenderAll();
-                if ((activeObj as any).name) {
-                  queueOp({
-                    op_type: "update",
-                    object_id: (activeObj as any).name,
-                    payload_json: JSON.stringify({
-                      patch: {
-                        stroke: c,
-                        strokeWidth: activeObj.strokeWidth || 2,
-                      },
-                    }),
-                  });
-                }
-              }
-            }}
-          />
-        </div>
-
-        <div className="h-px w-8 bg-white/10 mx-auto my-1" />
-        <label
-          className="cursor-pointer p-3 rounded-xl hover:bg-white/10 text-white/70 hover:text-white transition-colors flex items-center justify-center"
-          title="Upload Image"
+      {/* Floating Toolbar (Left Bottom) - Collapsible */}
+      <div
+        className={`fixed left-4 bottom-24 z-20 hidden sm:flex flex-col gap-2 p-2 rounded-2xl bg-black/40 backdrop-blur-xl border border-white/10 shadow-2xl transition-all duration-300 ease-in-out hover:bg-black/50 ${toolbarCollapsed ? "w-12 overflow-hidden" : ""}`}
+      >
+        {/* Collapse Toggle */}
+        <button
+          onClick={() => setToolbarCollapsed(!toolbarCollapsed)}
+          className="p-2 rounded-lg hover:bg-white/10 text-white/50 hover:text-white transition-colors flex items-center justify-center"
+          title={toolbarCollapsed ? "Expand Toolbar" : "Collapse Toolbar"}
         >
-          <input
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleImageUpload}
-          />
-          <ImageIcon size={20} />
-        </label>
-        {selectedId && (
-          <button
-            onClick={deleteSelected}
-            className="p-3 rounded-xl hover:bg-red-500/20 text-red-400 hover:text-red-400 transition-colors flex items-center justify-center mt-2"
-            title="Delete Selection"
-          >
-            <Trash2 size={20} />
-          </button>
+          {toolbarCollapsed ? (
+            <ChevronRight size={16} />
+          ) : (
+            <ChevronLeft size={16} />
+          )}
+        </button>
+        <div className="h-px w-8 bg-white/10 mx-auto" />
+
+        {!toolbarCollapsed && (
+          <>
+            <IconButton
+              active={tool === "select"}
+              onClick={() => setTool("select")}
+              icon={<MousePointer2 size={20} />}
+              label="Select"
+            />
+            <IconButton
+              active={tool === "hand"}
+              onClick={() => setTool("hand")}
+              icon={<Hand size={20} />}
+              label="Hand Tool (Pan)"
+            />
+            <div className="h-px w-8 bg-white/10 mx-auto my-1" />
+            <IconButton
+              active={tool === "rect"}
+              onClick={() => setTool("rect")}
+              icon={<Square size={20} />}
+              label="Rectangle Tool"
+            />
+            <IconButton
+              active={tool === "circle"}
+              onClick={() => setTool("circle")}
+              icon={<CircleIcon size={20} />}
+              label="Circle Tool"
+            />
+            <IconButton
+              active={tool === "text"}
+              onClick={addText}
+              icon={<Type size={20} />}
+              label="Text"
+            />
+            <IconButton
+              active={tool === "pen"}
+              onClick={() => setTool("pen")}
+              icon={<Pen size={20} />}
+              label="Pen"
+            />
+            <div className="h-px w-8 bg-white/10 mx-auto my-1" />
+
+            <div
+              className="flex flex-col gap-1 items-center"
+              title="Fill Color"
+            >
+              <Paintbrush size={14} className="text-zinc-500" />
+              <ColorPickerPopover
+                color={activeColor}
+                onChange={(c) => {
+                  setActiveColor(c);
+                  if (!fabricCanvas) return;
+                  const activeObj = fabricCanvas.getActiveObject();
+                  if (activeObj) {
+                    activeObj.set({ fill: c });
+                    fabricCanvas.requestRenderAll();
+                    if ((activeObj as any).name) {
+                      queueOp({
+                        op_type: "update",
+                        object_id: (activeObj as any).name,
+                        payload_json: JSON.stringify({ patch: { fill: c } }),
+                      });
+                    }
+                  }
+                }}
+              />
+            </div>
+
+            <div
+              className="flex flex-col gap-1 items-center"
+              title="Stroke Color"
+            >
+              <CircleDot size={14} className="text-zinc-500" />
+              <ColorPickerPopover
+                color={activeStrokeColor}
+                onChange={(c) => {
+                  setActiveStrokeColor(c);
+                  if (!fabricCanvas) return;
+                  const activeObj = fabricCanvas.getActiveObject();
+                  if (activeObj) {
+                    activeObj.set({
+                      stroke: c,
+                      strokeWidth: activeObj.strokeWidth || 2,
+                    });
+                    fabricCanvas.requestRenderAll();
+                    if ((activeObj as any).name) {
+                      queueOp({
+                        op_type: "update",
+                        object_id: (activeObj as any).name,
+                        payload_json: JSON.stringify({
+                          patch: {
+                            stroke: c,
+                            strokeWidth: activeObj.strokeWidth || 2,
+                          },
+                        }),
+                      });
+                    }
+                  }
+                }}
+              />
+            </div>
+
+            <div className="h-px w-8 bg-white/10 mx-auto my-1" />
+            <label
+              className="cursor-pointer p-3 rounded-xl hover:bg-white/10 text-white/70 hover:text-white transition-colors flex items-center justify-center"
+              title="Upload Image"
+            >
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImageUpload}
+              />
+              <ImageIcon size={20} />
+            </label>
+
+            <div className="h-px w-8 bg-white/10 mx-auto my-1" />
+            <IconButton
+              onClick={() => setIsSettingsOpen(true)}
+              icon={<Settings size={20} />}
+              label="Settings"
+            />
+            {selectedId && (
+              <button
+                onClick={deleteSelected}
+                className="p-3 rounded-xl hover:bg-red-500/20 text-red-400 hover:text-red-400 transition-colors flex items-center justify-center mt-2"
+                title="Delete Selection"
+              >
+                <Trash2 size={20} />
+              </button>
+            )}
+          </>
         )}
       </div>
 
@@ -836,13 +1133,13 @@ export function CanvasEditorPage() {
         <div className="w-px h-6 bg-white/10 mx-1" />
         <IconButton
           active={tool === "rect"}
-          onClick={addRect}
+          onClick={() => setTool("rect")}
           icon={<Square size={18} />}
           label="Rect"
         />
         <IconButton
           active={tool === "circle"}
-          onClick={addCircle}
+          onClick={() => setTool("circle")}
           icon={<CircleIcon size={18} />}
           label="Circle"
         />
@@ -884,19 +1181,201 @@ export function CanvasEditorPage() {
         activeLayerId={activeLayerId}
         setActiveLayerId={setActiveLayerId}
         queueOp={queueOp}
+        selectedShapeId={selectedId}
       />
+
+      {/* Viewport Controls (Bottom Right) */}
+      <div className="fixed right-4 bottom-24 z-20 flex flex-col items-center gap-2 p-2 rounded-2xl bg-black/40 backdrop-blur-xl border border-white/10 shadow-2xl transition-all duration-300 ease-in-out hover:bg-black/50">
+        <div className="flex flex-col items-center border-b border-white/5 pb-2 mb-1">
+          <IconButton
+            onClick={() => manualZoom(0.1)}
+            icon={<ZoomIn size={18} />}
+            label="Zoom In"
+          />
+          <span className="text-[10px] font-bold text-white/50 my-1 min-w-[35px] text-center">
+            {Math.round(zoom * 100)}%
+          </span>
+          <IconButton
+            onClick={() => manualZoom(-0.1)}
+            icon={<ZoomOut size={18} />}
+            label="Zoom Out"
+          />
+        </div>
+        <IconButton
+          onClick={resetZoom}
+          icon={<Maximize size={18} />}
+          label="Reset Zoom (100%)"
+        />
+        <IconButton
+          onClick={() => centerCanvas(true)}
+          icon={<Target size={18} />}
+          label="Center / Fit Canvas"
+        />
+      </div>
 
       {/* Context Menu */}
       {contextMenu && (
         <ContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
+          targetId={contextMenu.targetId}
           targetType={contextMenu.type}
           isLocked={contextMenu.locked}
           isVisible={contextMenu.visibleLayer}
           onClose={() => setContextMenu(null)}
-          onAction={handleContextMenuAction}
+          queueOp={queueOp}
         />
+      )}
+
+      {/* Canvas Settings Modal */}
+      {isSettingsOpen && state && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <Card className="w-full max-w-md bg-zinc-900 border-white/10 p-6 space-y-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/5 pb-4">
+              <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                <Settings size={20} className="text-indigo-400" />
+                Canvas Settings
+              </h2>
+              <button
+                onClick={() => {
+                  setIsSettingsOpen(false);
+                  setPendingSettings(null);
+                }}
+                className="text-zinc-500 hover:text-white transition-colors"
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs text-zinc-500 uppercase font-bold tracking-wider">
+                  Width (px)
+                </label>
+                <input
+                  type="number"
+                  value={pendingSettings?.width ?? state.width}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value);
+                    setPendingSettings((prev) => ({
+                      width: val,
+                      height: prev?.height ?? state.height,
+                      bgColor: prev?.bgColor ?? state.bgColor,
+                    }));
+                  }}
+                  className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs text-zinc-500 uppercase font-bold tracking-wider">
+                  Height (px)
+                </label>
+                <input
+                  type="number"
+                  value={pendingSettings?.height ?? state.height}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value);
+                    setPendingSettings((prev) => ({
+                      width: prev?.width ?? state.width,
+                      height: val,
+                      bgColor: prev?.bgColor ?? state.bgColor,
+                    }));
+                  }}
+                  className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs text-zinc-500 uppercase font-bold tracking-wider">
+                Background Color
+              </label>
+              <div className="flex items-center gap-3 bg-black/20 border border-white/10 rounded-lg p-2.5">
+                <input
+                  type="color"
+                  value={pendingSettings?.bgColor ?? state.bgColor}
+                  onChange={(e) => {
+                    setPendingSettings((prev) => ({
+                      width: prev?.width ?? state.width,
+                      height: prev?.height ?? state.height,
+                      bgColor: e.target.value,
+                    }));
+                  }}
+                  className="w-10 h-10 border-none bg-transparent cursor-pointer rounded overflow-hidden"
+                />
+                <span className="text-sm text-zinc-400 font-mono">
+                  {(pendingSettings?.bgColor ?? state.bgColor).toUpperCase()}
+                </span>
+              </div>
+            </div>
+
+            <div className="pt-4 flex flex-col gap-3">
+              <div className="flex gap-2">
+                <Button
+                  variant="primary"
+                  disabled={!pendingSettings}
+                  onClick={() => {
+                    if (pendingSettings) {
+                      queueOp({
+                        op_type: "meta",
+                        payload_json: JSON.stringify(pendingSettings),
+                      });
+                      setPendingSettings(null);
+                    }
+                  }}
+                  className="flex-1"
+                >
+                  Save Changes
+                </Button>
+                <Button
+                  variant="ghost"
+                  disabled={!pendingSettings}
+                  onClick={() => setPendingSettings(null)}
+                  className="flex-1"
+                >
+                  Discard
+                </Button>
+              </div>
+
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  const defaultSettings = {
+                    width: 1280,
+                    height: 720,
+                    bgColor: "#ffffff",
+                  };
+                  // Only queue if different from current state
+                  if (
+                    state.width !== 1280 ||
+                    state.height !== 720 ||
+                    state.bgColor !== "#ffffff"
+                  ) {
+                    queueOp({
+                      op_type: "meta",
+                      payload_json: JSON.stringify(defaultSettings),
+                    });
+                  }
+                  setPendingSettings(null);
+                }}
+                className="w-full border-white/10 hover:bg-white/5 text-zinc-400"
+              >
+                Restore Default Settings (1280x720 White)
+              </Button>
+
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setIsSettingsOpen(false);
+                  setPendingSettings(null);
+                }}
+                className="w-full text-zinc-500"
+              >
+                Close
+              </Button>
+            </div>
+          </Card>
+        </div>
       )}
     </div>
   );

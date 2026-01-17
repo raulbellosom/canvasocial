@@ -86,6 +86,10 @@ export type CanvasLayer = {
 
 export type CanvasState = {
   version: number;
+  width: number;
+  height: number;
+  bgColor: string;
+  bgFileId?: string;
   layers: CanvasLayer[];
   objects: CanvasObject[];
   meta: { zoom: number; pan: { x: number; y: number } };
