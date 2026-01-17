@@ -32,7 +32,7 @@ import { LayersPanel } from "./LayersPanel";
 import { ContextMenu, ContextMenuAction } from "./ContextMenu";
 import { ColorPickerPopover } from "./ColorPickerPopover";
 
-type Tool = "select" | "rect" | "circle" | "text" | "pen" | "hand";
+type Tool = "select" | "rect" | "circle" | "text" | "pen" | "hand" | "line";
 
 export function CanvasEditorPage() {
   const { canvasId } = useParams();
@@ -69,6 +69,21 @@ export function CanvasEditorPage() {
   const isDrawingShape = useRef(false);
   const shapeBeingDrawn = useRef<fabric.Object | null>(null);
   const startPoint = useRef<{ x: number; y: number } | null>(null);
+
+  // Refs for event handlers to avoid stale closures
+  const toolRef = useRef(tool);
+  const activeColorRef = useRef(activeColor);
+  const activeLayerIdRef = useRef(activeLayerId);
+
+  useEffect(() => {
+    toolRef.current = tool;
+  }, [tool]);
+  useEffect(() => {
+    activeColorRef.current = activeColor;
+  }, [activeColor]);
+  useEffect(() => {
+    activeLayerIdRef.current = activeLayerId;
+  }, [activeLayerId]);
 
   // Auto-select first layer if active is missing
   useEffect(() => {
@@ -229,15 +244,21 @@ export function CanvasEditorPage() {
   }, [canvasRef, fabricCanvas, state?.width, state?.height, state?.bgColor]);
 
   useEffect(() => {
-    if (!fabricCanvas) return;
+    if (!fabricCanvas || !state) return;
     const canvas = fabricCanvas;
+
+    // Sync Dimensions
+    if (canvas.width !== state.width || canvas.height !== state.height) {
+      canvas.setDimensions({ width: state.width, height: state.height });
+      canvas.requestRenderAll();
+    }
 
     // Sync Background Color independently
     if (state?.bgColor && canvas.backgroundColor !== state.bgColor) {
       canvas.set({ backgroundColor: state.bgColor });
       canvas.requestRenderAll();
     }
-  }, [fabricCanvas, state?.bgColor]);
+  }, [fabricCanvas, state?.width, state?.height, state?.bgColor]);
 
   useEffect(() => {
     if (!fabricCanvas) return;
@@ -280,37 +301,53 @@ export function CanvasEditorPage() {
       }
 
       // Drawing Mode
-      if (tool === "rect" || tool === "circle") {
+      if (
+        toolRef.current === "rect" ||
+        toolRef.current === "circle" ||
+        toolRef.current === "line"
+      ) {
         isDrawingShape.current = true;
         const pointer = canvas.getPointer(evt);
         startPoint.current = { x: pointer.x, y: pointer.y };
 
         const id = ID.unique();
-        if (tool === "rect") {
+        if (toolRef.current === "rect") {
           const rect = new fabric.Rect({
             left: pointer.x,
             top: pointer.y,
             width: 0,
             height: 0,
-            fill: activeColor,
+            fill: activeColorRef.current,
             name: id,
             strokeWidth: 0,
           });
-          (rect as any).layerId = activeLayerId;
+          (rect as any).layerId = activeLayerIdRef.current;
           shapeBeingDrawn.current = rect;
           canvas.add(rect);
-        } else if (tool === "circle") {
+        } else if (toolRef.current === "circle") {
           const circle = new fabric.Circle({
             left: pointer.x,
             top: pointer.y,
             radius: 0,
-            fill: activeColor,
+            fill: activeColorRef.current,
             name: id,
             strokeWidth: 0,
           });
-          (circle as any).layerId = activeLayerId;
+          (circle as any).layerId = activeLayerIdRef.current;
           shapeBeingDrawn.current = circle;
           canvas.add(circle);
+        } else if (toolRef.current === "line") {
+          const line = new fabric.Line(
+            [pointer.x, pointer.y, pointer.x, pointer.y],
+            {
+              stroke: activeColorRef.current,
+              strokeWidth: 4,
+              name: id,
+            },
+          );
+          (line as any).layerId = activeLayerIdRef.current;
+          shapeBeingDrawn.current = line;
+          canvas.add(line);
         }
         canvas.selection = false;
         return;
@@ -367,6 +404,11 @@ export function CanvasEditorPage() {
             left: centerX - radius,
             top: centerY - radius,
           });
+        } else if (shape.type === "line") {
+          (shape as fabric.Line).set({
+            x2: pointer.x,
+            y2: pointer.y,
+          });
         }
         canvas.requestRenderAll();
       }
@@ -389,7 +431,10 @@ export function CanvasEditorPage() {
           (obj.type === "rect" &&
             (obj.width || 0) < 5 &&
             (obj.height || 0) < 5) ||
-          (obj.type === "circle" && (obj.getScaledWidth() || 0) < 5);
+          (obj.type === "circle" && (obj.getScaledWidth() || 0) < 5) ||
+          (obj.type === "line" &&
+            Math.abs((obj as fabric.Line).x1! - (obj as fabric.Line).x2!) < 5 &&
+            Math.abs((obj as fabric.Line).y1! - (obj as fabric.Line).y2!) < 5);
 
         if (isTooSmall) {
           canvas.remove(obj);
@@ -400,7 +445,7 @@ export function CanvasEditorPage() {
           const canvasObj: any = {
             id: (obj as any).name,
             type: obj.type,
-            layerId: activeLayerId,
+            layerId: activeLayerIdRef.current,
             z: 0,
             visible: true,
             locked: false,
@@ -420,6 +465,9 @@ export function CanvasEditorPage() {
             canvasObj.left = obj.left;
             canvasObj.top = obj.top;
             canvasObj.radius = (obj as fabric.Circle).radius;
+          } else if (obj.type === "line") {
+            const line = obj as fabric.Line;
+            canvasObj.points = [line.x1, line.y1, line.x2, line.y2];
           }
 
           queueOp({
@@ -964,10 +1012,12 @@ export function CanvasEditorPage() {
     <div className="relative w-full h-full overflow-hidden bg-[#09090b] text-foreground font-sans touch-none overscroll-none">
       {/* Canvas Container - Now with scroll support for large canvas */}
       <div
-        className="flex-1 bg-zinc-900/50 overflow-hidden relative p-0 h-full"
+        className="flex-1 bg-zinc-950 overflow-hidden relative p-0 h-full flex items-center justify-center pt-16"
         ref={containerRef}
       >
-        <canvas ref={canvasRef} />
+        <div className="shadow-[0_0_80px_rgba(0,0,0,0.8)] border border-white/10 inline-block bg-white transition-shadow duration-500">
+          <canvas ref={canvasRef} />
+        </div>
       </div>
 
       {/* Floating Toolbar (Left Bottom) - Collapsible */}
@@ -1014,6 +1064,12 @@ export function CanvasEditorPage() {
               onClick={() => setTool("circle")}
               icon={<CircleIcon size={20} />}
               label="Circle Tool"
+            />
+            <IconButton
+              active={tool === "line"}
+              onClick={() => setTool("line")}
+              icon={<Minus size={20} className="rotate-45" />}
+              label="Line Tool"
             />
             <IconButton
               active={tool === "text"}
@@ -1140,8 +1196,14 @@ export function CanvasEditorPage() {
         <IconButton
           active={tool === "circle"}
           onClick={() => setTool("circle")}
-          icon={<CircleIcon size={18} />}
+          icon={<CircleDot size={18} />}
           label="Circle"
+        />
+        <IconButton
+          active={tool === "line"}
+          onClick={() => setTool("line")}
+          icon={<Minus size={18} className="rotate-45" />}
+          label="Line"
         />
         <IconButton
           active={tool === "text"}
@@ -1399,6 +1461,12 @@ function addFabricObject(canvas: fabric.Canvas, obj: any, setActive: boolean) {
       top: obj.y ?? obj.top,
       radius: obj.r ?? obj.radius,
       fill: obj.fill,
+      name: obj.id,
+    });
+  } else if (obj.type === "line") {
+    fObj = new fabric.Line(obj.points || [0, 0, 100, 100], {
+      stroke: obj.stroke || obj.fill || "black",
+      strokeWidth: obj.strokeWidth || 4,
       name: obj.id,
     });
   } else if (obj.type === "text") {
