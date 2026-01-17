@@ -66,6 +66,7 @@ export function CanvasEditorPage() {
 
   const [zoom, setZoom] = useState(1);
   const isInitialized = useRef(false);
+  const isCentered = useRef(false);
   const isDrawingShape = useRef(false);
   const shapeBeingDrawn = useRef<fabric.Object | null>(null);
   const startPoint = useRef<{ x: number; y: number } | null>(null);
@@ -103,10 +104,11 @@ export function CanvasEditorPage() {
     isInitialized.current = true;
 
     const canvas = new fabric.Canvas(canvasRef.current, {
-      width: state?.width || 1920,
-      height: state?.height || 1080,
-      backgroundColor: state?.bgColor || "#ffffff",
+      width: containerRef.current.clientWidth,
+      height: containerRef.current.clientHeight,
+      backgroundColor: "transparent", // Transparent to show workspace bg
       selection: true,
+      preserveObjectStacking: true, // Ensure layers order is preserved
     });
 
     setFabricCanvas(canvas);
@@ -117,14 +119,18 @@ export function CanvasEditorPage() {
 
     canvas.on("mouse:wheel", updateZoomState);
 
-    // Initial centering if possible
+    // Initial Center - Zoom 1, Center Content in Screen
     if (containerRef.current) {
+      const containerW = containerRef.current.clientWidth;
+      const containerH = containerRef.current.clientHeight;
+      const contentW = state?.width || 1920;
+      const contentH = state?.height || 1080;
+
       const vpt = canvas.viewportTransform;
       if (vpt) {
-        vpt[4] =
-          (containerRef.current.clientWidth - (state?.width || 1920)) / 2;
-        vpt[5] =
-          (containerRef.current.clientHeight - (state?.height || 1080)) / 2;
+        // vpt[4] is X translation, [5] is Y
+        vpt[4] = (containerW - contentW) / 2;
+        vpt[5] = (containerH - contentH) / 2;
         canvas.requestRenderAll();
       }
     }
@@ -252,29 +258,74 @@ export function CanvasEditorPage() {
     };
   }, [canvasRef]);
 
-  // Initial resize observer - DISABLED AUTO-ZOOM based on user feedback (fixed positioning required)
+  // Resize Observer for Infinite Canvas
   useEffect(() => {
-    // We do nothing on resize now, letting the canvas stay at fixed scale/position.
-    // The container is flex-centered, so the canvas element will stay centered,
-    // but we won't change zoom or viewportTransform programmatically.
-  }, []);
+    if (!fabricCanvas || !containerRef.current) return;
+    const canvas = fabricCanvas;
+
+    const resizeCanvasEl = () => {
+      if (!containerRef.current) return;
+      // Update DOM size to fill container
+      canvas.setDimensions({
+        width: containerRef.current.clientWidth,
+        height: containerRef.current.clientHeight,
+      });
+      canvas.requestRenderAll();
+    };
+
+    const ro = new ResizeObserver(resizeCanvasEl);
+    ro.observe(containerRef.current);
+
+    // Initial call
+    resizeCanvasEl();
+
+    return () => ro.disconnect();
+  }, [fabricCanvas]);
 
   useEffect(() => {
     if (!fabricCanvas || !state) return;
     const canvas = fabricCanvas;
 
     // Sync Dimensions
-    if (canvas.width !== state.width || canvas.height !== state.height) {
-      canvas.setDimensions({ width: state.width, height: state.height });
-      canvas.requestRenderAll();
+    // Sync Artboard (Infinite Canvas Background)
+    let artboard = canvas.getObjects().find((o: any) => o.name === "artboard");
+    if (!artboard) {
+      artboard = new fabric.Rect({
+        name: "artboard",
+        left: 0,
+        top: 0,
+        width: state.width,
+        height: state.height,
+        fill: state.bgColor || "#ffffff",
+        selectable: false,
+        evented: false,
+        hoverCursor: "default",
+        excludeFromExport: true,
+      });
+      canvas.add(artboard);
+      (canvas as any).sendToBack?.(artboard);
+    } else {
+      artboard.set({
+        width: state.width,
+        height: state.height,
+        fill: state.bgColor || "#ffffff",
+      });
+      (canvas as any).sendToBack?.(artboard);
     }
-
-    // Sync Background Color independently
-    if (state?.bgColor && canvas.backgroundColor !== state.bgColor) {
-      canvas.set({ backgroundColor: state.bgColor });
-      canvas.requestRenderAll();
-    }
+    canvas.requestRenderAll();
+    canvas.requestRenderAll();
   }, [fabricCanvas, state?.width, state?.height, state?.bgColor]);
+
+  // Auto-Center on Load
+  useEffect(() => {
+    if (fabricCanvas && state?.width && !isCentered.current) {
+      // Use timeout to ensure DOM is stabilized
+      setTimeout(() => {
+        centerCanvas(false);
+        isCentered.current = true;
+      }, 100);
+    }
+  }, [fabricCanvas, state?.width]);
 
   useEffect(() => {
     if (!fabricCanvas) return;
@@ -314,8 +365,8 @@ export function CanvasEditorPage() {
         return;
       }
 
-      // Panning Mode
-      if (target.defaultCursor === "grab") {
+      // Panning Mode - Only if Hand Tool is active
+      if (toolRef.current === "hand") {
         target.isDragging = true;
         target.selection = false;
         target.lastPosX = evt.clientX;
@@ -738,6 +789,10 @@ export function CanvasEditorPage() {
       // Re-enable object selection
       // Note: We might need to check layer locks here really, but for now enable all
       fabricCanvas.getObjects().forEach((obj) => {
+        // Exclude Artboard from being selectable
+        if ((obj as any).name === "artboard") {
+          return;
+        }
         // Check layer lock from state if possible? Or just re-apply simple logic
         // For now, assume unlocked if switching back.
         // Ideally we check state.layers again.
@@ -1051,20 +1106,19 @@ export function CanvasEditorPage() {
   }, []);
 
   return (
-    <div className="relative w-full h-full overflow-hidden bg-[#09090b] text-foreground font-sans touch-none overscroll-none">
+    <div className="relative w-full h-full overflow-hidden bg-muted/20 dark:bg-background text-foreground font-sans touch-none overscroll-none">
       {/* Canvas Container - Now with scroll support for large canvas */}
+      {/* Canvas Container - Infinite Canvas Mode */}
       <div
-        className="flex-1 bg-zinc-950 overflow-hidden relative p-0 h-full flex items-center justify-center"
         ref={containerRef}
+        className="w-full h-full bg-transparent flex items-center justify-center"
       >
-        <div className="shadow-[0_0_80px_rgba(0,0,0,0.8)] border border-white/10 inline-block bg-white transition-shadow duration-500">
-          <canvas ref={canvasRef} />
-        </div>
+        <canvas ref={canvasRef} />
       </div>
 
       {/* Floating Toolbar (Left) - Collapsible with vertical scroll */}
       <div
-        className={`fixed left-4 top-20 z-20 hidden sm:flex flex-col rounded-2xl bg-black/40 backdrop-blur-xl border border-white/10 shadow-2xl transition-all duration-300 ease-in-out hover:bg-black/50 ${
+        className={`fixed left-4 top-20 z-20 hidden sm:flex flex-col rounded-2xl bg-zinc-900/40 backdrop-blur-xl border border-white/10 shadow-2xl transition-all duration-300 ease-in-out hover:bg-zinc-900/60 ${
           toolbarCollapsed
             ? "w-12 h-min"
             : "w-[68px] bottom-24 overflow-x-hidden"
@@ -1295,7 +1349,7 @@ export function CanvasEditorPage() {
       />
 
       {/* Viewport Controls (Bottom Right) */}
-      <div className="fixed right-4 bottom-24 z-20 flex flex-col items-center gap-2 p-2 rounded-2xl bg-black/40 backdrop-blur-xl border border-white/10 shadow-2xl transition-all duration-300 ease-in-out hover:bg-black/50">
+      <div className="fixed right-4 bottom-24 z-20 flex flex-col items-center gap-2 p-2 rounded-2xl bg-zinc-900/40 backdrop-blur-xl border border-white/10 shadow-2xl transition-all duration-300 ease-in-out hover:bg-zinc-900/60">
         <div className="flex flex-col items-center border-b border-white/5 pb-2 mb-1">
           <IconButton
             onClick={() => manualZoom(0.1)}
