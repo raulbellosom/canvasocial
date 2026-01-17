@@ -125,10 +125,10 @@ export function ContextMenu({
   return createPortal(
     <div
       ref={ref}
-      className="fixed z-50 w-56 rounded-xl border border-(--border) bg-(--card) shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100 p-1 flex flex-col gap-1"
+      className="fixed z-50 w-56 rounded-xl border border-border bg-card shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100 p-1 flex flex-col gap-1"
       style={style}
     >
-      <div className="px-2 py-1.5 text-xs font-semibold text-(--muted) border-b border-(--border) mb-1">
+      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground border-b border-border/50 mb-1">
         {targetType
           ? `${targetType.charAt(0).toUpperCase() + targetType.slice(1)}`
           : "Selection"}
@@ -144,10 +144,10 @@ export function ContextMenu({
         label="Delete"
         onClick={() => handleAction("delete")}
         shortcut="Del"
-        className="text-red-400 hover:text-red-400 hover:bg-red-500/10"
+        className="text-red-500 hover:text-red-600 hover:bg-red-500/10"
       />
 
-      <div className="h-px bg-(--border) my-0.5" />
+      <div className="h-px bg-border/50 my-0.5" />
 
       <MenuItem
         icon={isLocked ? <Unlock size={16} /> : <Lock size={16} />}
@@ -160,7 +160,7 @@ export function ContextMenu({
         onClick={() => handleAction(isVisible ? "hidden" : "visible")}
       />
 
-      <div className="h-px bg-(--border) my-0.5" />
+      <div className="h-px bg-border/50 my-0.5" />
 
       <MenuItem
         icon={<BringToFront size={16} />}
@@ -193,16 +193,18 @@ function MenuItem({
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/10 text-sm transition-colors text-left group ${className}`}
+      className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-muted text-sm transition-colors text-left group ${className}`}
     >
       <div className="flex items-center gap-2">
         <span className="opacity-70 group-hover:opacity-100 transition-opacity">
           {icon}
         </span>
-        <span>{label}</span>
+        <span className="text-foreground">{label}</span>
       </div>
       {shortcut && (
-        <span className="text-xs text-(--muted) font-mono">{shortcut}</span>
+        <span className="text-xs text-muted-foreground font-mono">
+          {shortcut}
+        </span>
       )}
     </button>
   );

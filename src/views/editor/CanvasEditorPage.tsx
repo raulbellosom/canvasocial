@@ -1118,7 +1118,7 @@ export function CanvasEditorPage() {
 
       {/* Floating Toolbar (Left) - Collapsible with vertical scroll */}
       <div
-        className={`fixed left-4 top-20 z-20 hidden sm:flex flex-col rounded-2xl bg-zinc-900/40 backdrop-blur-xl border border-white/10 shadow-2xl transition-all duration-300 ease-in-out hover:bg-zinc-900/60 ${
+        className={`fixed left-4 top-20 z-20 hidden sm:flex flex-col rounded-2xl bg-background/80 dark:bg-zinc-900/40 backdrop-blur-xl border border-border shadow-2xl transition-all duration-300 ease-in-out hover:bg-background/95 dark:hover:bg-zinc-900/60 ${
           toolbarCollapsed
             ? "w-12 h-min"
             : "w-[68px] bottom-24 overflow-x-hidden"
@@ -1128,7 +1128,7 @@ export function CanvasEditorPage() {
         <div className="shrink-0 p-2 border-b border-white/10">
           <button
             onClick={() => setToolbarCollapsed(!toolbarCollapsed)}
-            className="p-2 rounded-lg hover:bg-white/10 text-white/50 hover:text-white transition-colors flex items-center justify-center w-full"
+            className="p-2 rounded-lg hover:bg-muted text-foreground/50 hover:text-foreground transition-colors flex items-center justify-center w-full"
             title={toolbarCollapsed ? "Expand Toolbar" : "Collapse Toolbar"}
           >
             {toolbarCollapsed ? (
@@ -1247,9 +1247,9 @@ export function CanvasEditorPage() {
               />
             </div>
 
-            <div className="h-px w-8 bg-white/10 mx-auto" />
+            <div className="h-px w-8 bg-border mx-auto" />
             <label
-              className="cursor-pointer p-3 rounded-xl hover:bg-white/10 text-white/70 hover:text-white transition-colors flex items-center justify-center"
+              className="cursor-pointer p-3 rounded-xl hover:bg-muted text-foreground/70 hover:text-foreground transition-colors flex items-center justify-center"
               title="Upload Image"
             >
               <input
@@ -1281,14 +1281,14 @@ export function CanvasEditorPage() {
       </div>
 
       {/* Mobile Toolbar (Bottom) */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 p-2 rounded-2xl bg-black/60 backdrop-blur-xl border border-white/10 shadow-2xl sm:hidden overflow-x-auto max-w-[90vw]">
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 p-2 rounded-2xl bg-background/80 dark:bg-black/60 backdrop-blur-xl border border-border shadow-2xl sm:hidden overflow-x-auto max-w-[90vw]">
         <IconButton
           active={tool === "select"}
           onClick={() => setTool("select")}
           icon={<MousePointer2 size={18} />}
           label="Select"
         />
-        <div className="w-px h-6 bg-white/10 mx-1" />
+        <div className="w-px h-6 bg-border mx-1" />
         <IconButton
           active={tool === "rect"}
           onClick={() => setTool("rect")}
@@ -1319,7 +1319,7 @@ export function CanvasEditorPage() {
           icon={<Pen size={18} />}
           label="Pen"
         />
-        <label className="cursor-pointer p-2 rounded-xl hover:bg-white/10 text-white/70 hover:text-white transition-colors flex items-center justify-center">
+        <label className="cursor-pointer p-2 rounded-xl hover:bg-muted text-foreground/70 hover:text-foreground transition-colors flex items-center justify-center">
           <input
             type="file"
             accept="image/*"
@@ -1331,7 +1331,7 @@ export function CanvasEditorPage() {
         {selectedId && (
           <button
             onClick={deleteSelected}
-            className="p-2 rounded-xl hover:bg-red-500/20 text-red-400"
+            className="p-2 rounded-xl hover:bg-red-500/20 text-red-500"
           >
             <Trash2 size={18} />
           </button>
@@ -1349,14 +1349,14 @@ export function CanvasEditorPage() {
       />
 
       {/* Viewport Controls (Bottom Right) */}
-      <div className="fixed right-4 bottom-24 z-20 flex flex-col items-center gap-2 p-2 rounded-2xl bg-zinc-900/40 backdrop-blur-xl border border-white/10 shadow-2xl transition-all duration-300 ease-in-out hover:bg-zinc-900/60">
-        <div className="flex flex-col items-center border-b border-white/5 pb-2 mb-1">
+      <div className="fixed right-4 bottom-24 z-20 flex flex-col items-center gap-2 p-2 rounded-2xl bg-background/80 dark:bg-zinc-900/40 backdrop-blur-xl border border-border shadow-2xl transition-all duration-300 ease-in-out hover:bg-background/95 dark:hover:bg-zinc-900/60">
+        <div className="flex flex-col items-center border-b border-border pb-2 mb-1">
           <IconButton
             onClick={() => manualZoom(0.1)}
             icon={<ZoomIn size={18} />}
             label="Zoom In"
           />
-          <span className="text-[10px] font-bold text-white/50 my-1 min-w-[35px] text-center">
+          <span className="text-[10px] font-bold text-foreground/50 my-1 min-w-[35px] text-center">
             {Math.round(zoom * 100)}%
           </span>
           <IconButton
@@ -1394,10 +1394,10 @@ export function CanvasEditorPage() {
       {/* Canvas Settings Modal */}
       {isSettingsOpen && state && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <Card className="w-full max-w-md bg-zinc-900 border-white/10 p-6 space-y-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-white/5 pb-4">
-              <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-                <Settings size={20} className="text-indigo-400" />
+          <Card className="w-full max-w-md bg-background dark:bg-zinc-900 border-border p-6 space-y-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-border pb-4">
+              <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
+                <Settings size={20} className="text-indigo-500" />
                 Canvas Settings
               </h2>
               <button
@@ -1405,7 +1405,7 @@ export function CanvasEditorPage() {
                   setIsSettingsOpen(false);
                   setPendingSettings(null);
                 }}
-                className="text-zinc-500 hover:text-white transition-colors"
+                className="text-muted-foreground hover:text-foreground transition-colors"
               >
                 &times;
               </button>
@@ -1413,7 +1413,7 @@ export function CanvasEditorPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-xs text-zinc-500 uppercase font-bold tracking-wider">
+                <label className="text-xs text-muted-foreground uppercase font-bold tracking-wider">
                   Width (px)
                 </label>
                 <input
@@ -1427,11 +1427,11 @@ export function CanvasEditorPage() {
                       bgColor: prev?.bgColor ?? state.bgColor,
                     }));
                   }}
-                  className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                  className="w-full bg-muted/20 border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:border-indigo-500 transition-colors"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs text-zinc-500 uppercase font-bold tracking-wider">
+                <label className="text-xs text-muted-foreground uppercase font-bold tracking-wider">
                   Height (px)
                 </label>
                 <input
@@ -1445,7 +1445,7 @@ export function CanvasEditorPage() {
                       bgColor: prev?.bgColor ?? state.bgColor,
                     }));
                   }}
-                  className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                  className="w-full bg-muted/20 border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:border-indigo-500 transition-colors"
                 />
               </div>
             </div>
@@ -1613,7 +1613,7 @@ function addFabricObject(canvas: fabric.Canvas, obj: any, setActive: boolean) {
   }
 }
 
-function IconButton({
+export function IconButton({
   active,
   onClick,
   icon,
@@ -1627,12 +1627,12 @@ function IconButton({
   return (
     <button
       onClick={onClick}
-      title={label}
-      className={`p-3 rounded-xl transition-all duration-200 flex items-center justify-center ${
+      className={`p-2.5 rounded-xl transition-all ${
         active
-          ? "bg-indigo-500/20 text-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.3)] ring-1 ring-indigo-500/50"
-          : "text-white/60 hover:text-white hover:bg-white/10"
+          ? "bg-indigo-500 text-white shadow-lg shadow-indigo-500/25 scale-105"
+          : "text-foreground/60 hover:text-foreground hover:bg-muted"
       }`}
+      title={label}
     >
       {icon}
     </button>

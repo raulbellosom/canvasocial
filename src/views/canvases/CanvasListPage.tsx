@@ -258,7 +258,7 @@ export function CanvasListPage() {
 
                 {/* Owner Actions */}
                 {isOwner && (
-                  <div className="absolute bottom-6 right-6 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="absolute bottom-6 right-6 flex items-center gap-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={(e) => {
                         e.preventDefault();
@@ -266,7 +266,7 @@ export function CanvasListPage() {
                         setEditingCanvas(c);
                         setEditName(c.name);
                       }}
-                      className="p-2 rounded-xl bg-white/10 hover:bg-purple-500/20 text-white/50 hover:text-purple-400 transition-all border border-white/5"
+                      className="p-2 rounded-xl bg-muted hover:bg-violet-500/20 text-muted-foreground hover:text-violet-500 hover:scale-110 active:scale-95 transition-all border border-border"
                       title="Edit Canvas"
                     >
                       <Edit2 size={16} />
@@ -277,7 +277,7 @@ export function CanvasListPage() {
                         e.stopPropagation();
                         setDeletingCanvas(c as any); // Type assertion for safety
                       }}
-                      className="p-2 rounded-xl bg-white/10 hover:bg-red-500/20 text-white/50 hover:text-red-400 transition-all border border-white/5"
+                      className="p-2 rounded-xl bg-muted hover:bg-red-500/20 text-muted-foreground hover:text-red-500 hover:scale-110 active:scale-95 transition-all border border-border"
                       title="Delete Canvas"
                     >
                       <Trash2 size={16} />

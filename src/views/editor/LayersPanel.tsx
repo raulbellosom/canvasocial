@@ -194,7 +194,7 @@ export function LayersPanel({
       <div className="fixed top-20 right-4 z-10">
         <Button
           size="sm"
-          className="h-10 w-10 bg-black/40 backdrop-blur-md border border-white/10 text-white hover:bg-black/60 rounded-xl"
+          className="h-10 w-10 bg-background/80 backdrop-blur-md border border-border text-foreground hover:bg-muted shadow-lg rounded-xl"
           onClick={() => setIsOpen(true)}
         >
           <Layers size={20} />
@@ -240,22 +240,22 @@ export function LayersPanel({
   };
 
   return (
-    <div className="fixed top-20 right-4 z-10 w-72 bg-black/50 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl flex flex-col max-h-[calc(100vh-120px)] transition-all">
-      <div className="flex items-center justify-between p-4 border-b border-white/5">
-        <div className="flex items-center gap-2 font-medium text-sm text-white/90">
-          <Layers size={16} className="text-indigo-400" /> Layers
+    <div className="fixed top-20 right-4 z-10 w-72 bg-background/90 dark:bg-black/50 backdrop-blur-2xl border border-border dark:border-white/10 rounded-2xl shadow-2xl flex flex-col max-h-[calc(100vh-120px)] transition-all">
+      <div className="flex items-center justify-between p-4 border-b border-border/50 dark:border-white/5">
+        <div className="flex items-center gap-2 font-medium text-sm text-foreground/90">
+          <Layers size={16} className="text-indigo-500" /> Layers
         </div>
         <div className="flex gap-1">
           <button
             onClick={addLayer}
-            className="p-1.5 rounded-lg hover:bg-white/10 text-white/70 hover:text-white transition"
+            className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition"
             title="New Layer"
           >
             <Plus size={16} />
           </button>
           <button
             onClick={() => setIsOpen(false)}
-            className="p-1.5 rounded-lg hover:bg-white/10 text-white/70 hover:text-white transition"
+            className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition"
           >
             <span className="text-lg leading-none">&times;</span>
           </button>
@@ -268,8 +268,8 @@ export function LayersPanel({
               onClick={() => setActiveLayerId(layer.id)}
               className={`flex items-center justify-between p-3 rounded-xl text-sm cursor-pointer border transition-all group ${
                 activeLayerId === layer.id
-                  ? "bg-indigo-500/10 border-indigo-500/30 shadow-[inset_0_0_10px_rgba(99,102,241,0.1)]"
-                  : "border-transparent hover:bg-white/5"
+                  ? "bg-indigo-500/10 border-indigo-500/30 dark:shadow-[inset_0_0_10px_rgba(99,102,241,0.1)]"
+                  : "border-transparent hover:bg-muted/50"
               }`}
             >
               <div className="flex items-center gap-2 overflow-hidden">
@@ -279,7 +279,7 @@ export function LayersPanel({
                     e.stopPropagation();
                     toggleLayerCollapse(layer.id);
                   }}
-                  className="p-0.5 rounded hover:bg-white/10 text-white/40 hover:text-white transition"
+                  className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition"
                 >
                   {collapsedLayers.has(layer.id) ? (
                     <ChevronRight size={12} />
@@ -294,7 +294,7 @@ export function LayersPanel({
                       e.stopPropagation();
                       moveLayer(index, "up");
                     }}
-                    className="text-white/20 hover:text-white disabled:opacity-0"
+                    className="text-muted-foreground/30 hover:text-foreground disabled:opacity-0"
                   >
                     <ArrowUp size={10} />
                   </button>
@@ -304,7 +304,7 @@ export function LayersPanel({
                       e.stopPropagation();
                       moveLayer(index, "down");
                     }}
-                    className="text-white/20 hover:text-white disabled:opacity-0"
+                    className="text-muted-foreground/30 hover:text-foreground disabled:opacity-0"
                   >
                     <ArrowDown size={10} />
                   </button>
@@ -320,12 +320,12 @@ export function LayersPanel({
                     }}
                     onBlur={() => confirmRename(true)}
                     autoFocus
-                    className="bg-white/10 border border-white/20 rounded px-1 py-0.5 text-sm text-white w-24 outline-none focus:border-indigo-400"
+                    className="bg-muted border border-border rounded px-1 py-0.5 text-sm text-foreground w-24 outline-none focus:border-indigo-400"
                     onClick={(e) => e.stopPropagation()}
                   />
                 ) : (
                   <span
-                    className={`truncate max-w-[100px] font-medium cursor-text ${activeLayerId === layer.id ? "text-indigo-300" : "text-zinc-400 group-hover:text-zinc-200"}`}
+                    className={`truncate max-w-[100px] font-medium cursor-text ${activeLayerId === layer.id ? "text-indigo-600 dark:text-indigo-400" : "text-muted-foreground group-hover:text-foreground"}`}
                     onDoubleClick={(e) => {
                       e.stopPropagation();
                       startRename(layer.id, layer.name);
@@ -342,7 +342,7 @@ export function LayersPanel({
                     e.stopPropagation();
                     toggleVisibility(layer);
                   }}
-                  className={`p-1.5 rounded hover:bg-white/10 ${layer.visible ? "text-white/70" : "text-white/30"}`}
+                  className={`p-1.5 rounded hover:bg-muted ${layer.visible ? "text-foreground/70" : "text-foreground/30"}`}
                   title={layer.visible ? "Hide" : "Show"}
                 >
                   {layer.visible ? <Eye size={14} /> : <EyeOff size={14} />}
@@ -352,7 +352,7 @@ export function LayersPanel({
                     e.stopPropagation();
                     toggleLock(layer);
                   }}
-                  className={`p-1.5 rounded hover:bg-white/10 ${layer.locked ? "text-amber-400" : "text-white/30"}`}
+                  className={`p-1.5 rounded hover:bg-muted ${layer.locked ? "text-amber-500" : "text-foreground/30"}`}
                   title={layer.locked ? "Unlock" : "Lock"}
                 >
                   {layer.locked ? <Lock size={14} /> : <Unlock size={14} />}
@@ -384,8 +384,8 @@ export function LayersPanel({
                         key={idx}
                         className={`flex items-center justify-between text-xs px-2 py-1.5 rounded cursor-pointer group/item border transition-colors ${
                           isSelected
-                            ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/30"
-                            : "text-zinc-300 hover:text-white hover:bg-white/5 border-transparent hover:border-white/5"
+                            ? "bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border-indigo-500/30"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted/50 border-transparent hover:border-border"
                         }`}
                         onClick={(e) => {
                           e.stopPropagation();
@@ -512,7 +512,7 @@ export function LayersPanel({
                                 }),
                               });
                             }}
-                            className={`p-1 hover:bg-white/20 rounded ${obj.visible ? "text-white/50" : "text-white/30"}`}
+                            className={`p-1 hover:bg-muted rounded ${obj.visible ? "text-foreground/50" : "text-foreground/30"}`}
                           >
                             {obj.visible ? (
                               <Eye size={10} />

@@ -57,22 +57,24 @@ export function NotificationsPopover() {
     <div className="relative" ref={menuRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 rounded-xl hover:bg-white/5 transition-colors text-[var(--muted)] hover:text-[var(--fg)]"
+        className="relative p-2 rounded-xl hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
       >
         <Bell size={20} />
         {unreadCount > 0 && (
-          <span className="absolute top-1.5 right-1.5 size-2.5 bg-red-500 rounded-full border-2 border-[var(--bg)]" />
+          <span className="absolute top-1.5 right-1.5 size-2.5 bg-destructive rounded-full border-2 border-background" />
         )}
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-80 rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 z-50">
-          <div className="flex items-center justify-between p-3 border-b border-[var(--border)]">
-            <h3 className="font-semibold text-sm">Notifications</h3>
+        <div className="absolute right-0 top-full mt-2 w-80 rounded-xl border border-border bg-card shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 z-50">
+          <div className="flex items-center justify-between p-3 border-b border-border">
+            <h3 className="font-semibold text-sm text-foreground">
+              Notifications
+            </h3>
             <Link
               to="/notifications"
               onClick={() => setIsOpen(false)}
-              className="text-xs text-[var(--accent)] hover:underline"
+              className="text-xs text-accent hover:underline"
             >
               View all
             </Link>
@@ -80,34 +82,35 @@ export function NotificationsPopover() {
 
           <div className="max-h-64 overflow-y-auto">
             {unreadCount === 0 ? (
-              <div className="p-8 text-center text-sm text-[var(--muted)]">
+              <div className="p-8 text-center text-sm text-muted-foreground">
                 No new notifications
               </div>
             ) : (
-              <div className="divide-y divide-[var(--border)]">
+              <div className="divide-y divide-border">
                 {notifications?.map((n) => (
                   <div
                     key={n.$id}
-                    className="p-3 text-sm hover:bg-white/5 transition-colors group"
+                    className="p-3 text-sm hover:bg-muted/50 transition-colors group cursor-default"
                   >
                     <div className="flex justify-between items-start gap-2">
                       <div>
-                        <p className="font-medium text-[var(--fg)]">
-                          {n.title}
-                        </p>
-                        <p className="text-[var(--muted)] text-xs mt-0.5 line-clamp-2">
+                        <p className="font-medium text-foreground">{n.title}</p>
+                        <p className="text-muted-foreground text-xs mt-0.5 line-clamp-2">
                           {n.body}
                         </p>
-                        <p className="text-[var(--muted)] text-[10px] mt-1">
+                        <p className="text-muted-foreground/60 text-[10px] mt-1">
                           {new Date(n.$createdAt).toLocaleTimeString()}
                         </p>
                       </div>
                       <button
                         onClick={() => markRead.mutate(n.$id)}
-                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-white/10 rounded"
+                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-muted rounded transition-opacity"
                         title="Mark as read"
                       >
-                        <Check size={14} />
+                        <Check
+                          size={14}
+                          className="text-muted-foreground hover:text-foreground"
+                        />
                       </button>
                     </div>
                   </div>

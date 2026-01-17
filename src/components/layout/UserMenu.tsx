@@ -39,9 +39,9 @@ export function UserMenu() {
     <div className="relative" ref={menuRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 hover:bg-white/5 rounded-full p-1 pr-3 transition-colors"
+        className="flex items-center gap-2 hover:bg-muted/50 rounded-full p-1 pr-3 transition-colors"
       >
-        <div className="size-8 rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--accent-2)] grid place-items-center text-white text-xs font-bold shadow-lg">
+        <div className="size-8 rounded-full bg-linear-to-br from-(--accent) to-violet-500 grid place-items-center text-white text-xs font-bold shadow-lg">
           {initials}
         </div>
         <span className="text-sm font-medium hidden sm:block">
@@ -50,37 +50,39 @@ export function UserMenu() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-48 rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 z-50">
-          <div className="p-3 border-b border-[var(--border)]">
-            <p className="text-xs font-semibold text-[var(--muted)]">
+        <div className="absolute right-0 top-full mt-2 w-48 rounded-xl border border-border bg-card shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 z-50">
+          <div className="p-3 border-b border-border">
+            <p className="text-xs font-semibold text-muted-foreground">
               Signed in as
             </p>
-            <p className="text-sm font-medium truncate">{user.email}</p>
+            <p className="text-sm font-medium truncate text-foreground">
+              {user.email}
+            </p>
           </div>
           <div className="p-1">
             <button
               onClick={() => {
                 setIsOpen(false); /* nav('/profile') */
               }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-white/5 disabled:opacity-50 text-left"
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-muted text-foreground transition-colors text-left"
             >
-              <UserIcon size={16} />
+              <UserIcon size={16} className="text-muted-foreground" />
               Edit Profile
             </button>
             <button
               onClick={() => {
                 setIsOpen(false);
               }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-white/5 disabled:opacity-50 text-left"
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-muted text-foreground transition-colors text-left"
             >
-              <Settings size={16} />
+              <Settings size={16} className="text-muted-foreground" />
               Settings
             </button>
           </div>
-          <div className="p-1 border-t border-[var(--border)]">
+          <div className="p-1 border-t border-border">
             <button
               onClick={handleLogout}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-red-500/10 text-red-500 text-left"
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-destructive/10 text-destructive text-left transition-colors"
             >
               <LogOut size={16} />
               Logout

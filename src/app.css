@@ -3,28 +3,36 @@
 /* Tailwind v4: drive dark mode manually using a data attribute */
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
-/* Theme tokens (Tailwind v4 friendly): CSS variables you can use in arbitrary values */
+/* Theme tokens (Tailwind v4 friendly) */
 @theme {
-  --bg: #0b1220;
-  --fg: #e5e7eb;
-  --muted: #94a3b8;
-  --card: #0f172a;
-  --border: rgba(148, 163, 184, 0.18);
-  --accent: #7c3aed;
-  --accent-2: #22c55e;
-  --danger: #ef4444;
+  --color-background: #0b1220;
+  --color-foreground: #e5e7eb;
+  --color-muted: #94a3b8;
+  --color-card: #0f172a;
+  --color-border: rgba(148, 163, 184, 0.18);
+  --color-accent: #7c3aed;
+  --color-accent-foreground: #ffffff;
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #ffffff;
+
+  /* Shared variables for legacy var() support */
+  --bg: var(--color-background);
+  --fg: var(--color-foreground);
+  --card: var(--color-card);
+  --muted: var(--color-muted);
+  --border: var(--color-border);
+  --accent: var(--color-accent);
 }
 
 /* Light theme override */
 html[data-theme="light"] {
-  --bg: #ffffff;
-  --fg: #0f172a;
-  --muted: #475569;
-  --card: #f8fafc;
-  --border: rgba(15, 23, 42, 0.12);
-  --accent: #6d28d9;
-  --accent-2: #16a34a;
-  --danger: #dc2626;
+  --color-background: #ffffff;
+  --color-foreground: #0f172a;
+  --color-muted: #475569;
+  --color-card: #f8fafc;
+  --color-border: rgba(15, 23, 42, 0.12);
+  --color-accent: #6d28d9;
+  --color-destructive: #dc2626;
 }
 
 :root {
