@@ -14,8 +14,8 @@ export function AppShell() {
   useRealtimeNotifications();
 
   return (
-    <div className="h-dvh grid grid-rows-[auto,1fr] overflow-hidden">
-      <header className="shrink-0 border-b border-(--border) bg-(--bg)/80 backdrop-blur-md">
+    <div className="h-dvh overflow-hidden">
+      <header className="fixed top-0 z-50 w-full shrink-0 h-16 border-b border-(--border) bg-(--bg)/80 backdrop-blur-md">
         <div className="mx-auto max-w-7xl px-4 h-16 flex items-center justify-between">
           {/* Logo & Brand */}
           <div className="flex items-center gap-3">
@@ -65,7 +65,7 @@ export function AppShell() {
         </div>
       </header>
 
-      <main className="flex-1 min-h-0 relative">
+      <main className="flex-1 min-h-0 h-dvh relative pt-16">
         <Outlet />
       </main>
     </div>

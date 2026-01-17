@@ -13,6 +13,7 @@ import {
   ArrowDown,
   ChevronRight,
   ChevronDown,
+  Focus,
 } from "lucide-react";
 import { CanvasLayer } from "./types";
 import { ID } from "appwrite";
@@ -45,6 +46,34 @@ export function LayersPanel({
   );
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState("");
+
+  // Sync objects for listing - MUST be before any early returns (React hooks rules)
+  const [layerObjects, setLayerObjects] = useState<Record<string, any[]>>({});
+
+  useEffect(() => {
+    if (!canvas) return;
+    const updateObjects = () => {
+      const objs = canvas.getObjects();
+      const map: Record<string, any[]> = {};
+      objs.forEach((o: any) => {
+        const lid = o.layerId || "unknown";
+        if (!map[lid]) map[lid] = [];
+        map[lid].push(o);
+      });
+      // Reverse to show top-most first in list
+      Object.keys(map).forEach((k) => map[k].reverse());
+      setLayerObjects(map);
+    };
+
+    canvas.on("object:added", updateObjects);
+    canvas.on("object:removed", updateObjects);
+
+    updateObjects();
+    return () => {
+      canvas.off("object:added", updateObjects);
+      canvas.off("object:removed", updateObjects);
+    };
+  }, [canvas]);
 
   const toggleLayerCollapse = (layerId: string) => {
     setCollapsedLayers((prev) => {
@@ -157,6 +186,9 @@ export function LayersPanel({
     }
   };
 
+  // Sort layers by zIndex descending (Top first) - also before early return
+  const sorted = [...layers].sort((a, b) => b.zIndex - a.zIndex);
+
   if (!isOpen) {
     return (
       <div className="fixed top-20 right-4 z-10">
@@ -170,35 +202,6 @@ export function LayersPanel({
       </div>
     );
   }
-
-  // Sync objects for listing
-  const [layerObjects, setLayerObjects] = useState<Record<string, any[]>>({});
-
-  useEffect(() => {
-    if (!canvas) return;
-    const updateObjects = () => {
-      const objs = canvas.getObjects();
-      const map: Record<string, any[]> = {};
-      objs.forEach((o: any) => {
-        const lid = o.layerId || "unknown";
-        if (!map[lid]) map[lid] = [];
-        map[lid].push(o);
-      });
-      // Reverse to show top-most first in list
-      Object.keys(map).forEach((k) => map[k].reverse());
-      setLayerObjects(map);
-    };
-
-    canvas.on("object:added", updateObjects);
-    canvas.on("object:removed", updateObjects);
-    // canvas.on("object:modified", updateObjects); // update on modify if needed (e.g. name change)
-
-    updateObjects();
-    return () => {
-      canvas.off("object:added", updateObjects);
-      canvas.off("object:removed", updateObjects);
-    };
-  }, [canvas]);
 
   const moveLayer = (index: number, direction: "up" | "down") => {
     // index is current index in 'sorted' array.
@@ -235,9 +238,6 @@ export function LayersPanel({
       }
     });
   };
-
-  // Sort layers by zIndex descending (Top first)
-  const sorted = [...layers].sort((a, b) => b.zIndex - a.zIndex);
 
   return (
     <div className="fixed top-20 right-4 z-10 w-72 bg-black/50 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl flex flex-col max-h-[calc(100vh-120px)] transition-all">
@@ -427,6 +427,36 @@ export function LayersPanel({
                         </div>
 
                         <div className="flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity">
+                          {/* Locate Shape Button */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (canvas && obj) {
+                                // Get object center
+                                const objCenter = obj.getCenterPoint();
+                                const zoom = 1.5; // Zoom level for focus
+
+                                // Calculate viewport transform to center on object
+                                const vpt = canvas.viewportTransform;
+                                if (vpt) {
+                                  const canvasWidth = canvas.getWidth();
+                                  const canvasHeight = canvas.getHeight();
+
+                                  canvas.setZoom(zoom);
+                                  vpt[4] = canvasWidth / 2 - objCenter.x * zoom;
+                                  vpt[5] =
+                                    canvasHeight / 2 - objCenter.y * zoom;
+                                  canvas.setViewportTransform(vpt);
+                                  canvas.setActiveObject(obj);
+                                  canvas.requestRenderAll();
+                                }
+                              }
+                            }}
+                            className="p-1 hover:bg-indigo-500/20 rounded text-indigo-400/70 hover:text-indigo-400"
+                            title="Locate Shape"
+                          >
+                            <Focus size={10} />
+                          </button>
                           {/* Object Controls */}
                           <button
                             onClick={(e) => {

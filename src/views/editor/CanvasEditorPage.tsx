@@ -143,10 +143,53 @@ export function CanvasEditorPage() {
       }
     });
 
-    // Prevent browser context menu on canvas
-    canvasRef.current?.addEventListener("contextmenu", (e) =>
-      e.preventDefault(),
-    );
+    // Handle contextmenu event to show custom context menu
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Get pointer position relative to canvas
+      const pointer = canvas.getPointer(e);
+      const target = canvas.findTarget(e as any) as any;
+
+      if (target) {
+        // Select the target if not already selected
+        if (canvas.getActiveObject() !== target) {
+          canvas.setActiveObject(target);
+          canvas.requestRenderAll();
+        }
+
+        setContextMenu({
+          x: e.clientX,
+          y: e.clientY,
+          visible: true,
+          targetId: target.name,
+          type: target.type,
+          locked: !target.evented,
+          visibleLayer: target.visible,
+        });
+      } else {
+        // Check if there's already a selected object
+        const activeObj = canvas.getActiveObject() as any;
+        if (activeObj) {
+          setContextMenu({
+            x: e.clientX,
+            y: e.clientY,
+            visible: true,
+            targetId: activeObj.name,
+            type: activeObj.type,
+            locked: !activeObj.evented,
+            visibleLayer: activeObj.visible,
+          });
+        }
+      }
+    };
+
+    // Attach to upper-canvas which Fabric creates for event handling
+    const upperCanvas = canvas.upperCanvasEl;
+    if (upperCanvas) {
+      upperCanvas.addEventListener("contextmenu", handleContextMenu);
+    }
 
     // Long-press for mobile context menu
     let longPressTimer: ReturnType<typeof setTimeout> | null = null;
@@ -209,39 +252,12 @@ export function CanvasEditorPage() {
     };
   }, [canvasRef]);
 
-  // Initial resize observer for fit-to-screen
+  // Initial resize observer - DISABLED AUTO-ZOOM based on user feedback (fixed positioning required)
   useEffect(() => {
-    if (!fabricCanvas || !containerRef.current) return;
-    const canvas = fabricCanvas;
-
-    const performAutoZoom = () => {
-      if (!containerRef.current || !canvas) return;
-      const containerWidth = containerRef.current.clientWidth;
-      const containerHeight = containerRef.current.clientHeight;
-      const padding = 60;
-      const availableW = containerWidth - padding;
-      const availableH = containerHeight - padding;
-
-      const scaleX = availableW / (state?.width || 1280);
-      const scaleY = availableH / (state?.height || 720);
-      const scale = Math.min(scaleX, scaleY, 1);
-
-      canvas.setZoom(scale);
-      const vpt = canvas.viewportTransform;
-      if (vpt) {
-        vpt[4] = (containerWidth - (state?.width || 1280) * scale) / 2;
-        vpt[5] = (containerHeight - (state?.height || 720) * scale) / 2;
-      }
-      canvas.requestRenderAll();
-    };
-
-    const ro = new ResizeObserver(performAutoZoom);
-    ro.observe(containerRef.current);
-
-    return () => {
-      ro.disconnect();
-    };
-  }, [canvasRef, fabricCanvas, state?.width, state?.height, state?.bgColor]);
+    // We do nothing on resize now, letting the canvas stay at fixed scale/position.
+    // The container is flex-centered, so the canvas element will stay centered,
+    // but we won't change zoom or viewportTransform programmatically.
+  }, []);
 
   useEffect(() => {
     if (!fabricCanvas || !state) return;
@@ -272,12 +288,19 @@ export function CanvasEditorPage() {
       // Handle Right Click (Context Menu)
       if ((opt as any).button === 3 || evt.button === 2) {
         evt.preventDefault();
-        const activeObj = opt.target as any;
+        evt.stopPropagation();
+
+        // Get the clicked object or currently selected object
+        const clickedObj = opt.target as any;
+        const activeObj = clickedObj || canvas.getActiveObject();
+
         if (activeObj) {
-          if (canvas.getActiveObject() !== activeObj) {
-            canvas.setActiveObject(activeObj);
+          // Select the clicked object if different from current selection
+          if (clickedObj && canvas.getActiveObject() !== clickedObj) {
+            canvas.setActiveObject(clickedObj);
             canvas.requestRenderAll();
           }
+
           setContextMenu({
             x: evt.clientX,
             y: evt.clientY,
@@ -287,8 +310,8 @@ export function CanvasEditorPage() {
             locked: !activeObj.evented,
             visibleLayer: activeObj.visible,
           });
-          return;
         }
+        return;
       }
 
       // Panning Mode
@@ -568,28 +591,47 @@ export function CanvasEditorPage() {
     };
   }, [fabricCanvas]);
 
-  // Sync Initial State
+  // Sync Initial State - runs when state.objects changes
+  const syncedObjectsRef = useRef<Set<string>>(new Set());
+
   useEffect(() => {
-    if (!fabricCanvas || !state || state.objects.length === 0) return;
-    if (fabricCanvas.getObjects().length === 0) {
-      state.objects.forEach((obj) => {
-        addFabricObject(fabricCanvas, obj, false);
+    if (!fabricCanvas || !state) return;
+
+    // Get current object IDs in state
+    const stateObjectIds = new Set(state.objects.map((o) => o.id));
+
+    // Add missing objects to canvas
+    state.objects.forEach((obj) => {
+      if (!syncedObjectsRef.current.has(obj.id)) {
+        // Check if object already exists on canvas
+        const existsOnCanvas = fabricCanvas
+          .getObjects()
+          .some((o: any) => o.name === obj.id);
+        if (!existsOnCanvas) {
+          addFabricObject(fabricCanvas, obj, false);
+        }
+        syncedObjectsRef.current.add(obj.id);
+      }
+    });
+
+    // Ensure we render after initial sync
+    fabricCanvas.requestRenderAll();
+
+    // Apply layer visibility/locks
+    state.layers?.forEach((layer) => {
+      fabricCanvas.getObjects().forEach((o: any) => {
+        if ((o as any).layerId === layer.id) {
+          o.set({
+            visible: layer.visible,
+            selectable: !layer.locked,
+            evented: !layer.locked,
+          });
+        }
       });
-      // Apply layer visibility/locks
-      state.layers?.forEach((layer) => {
-        fabricCanvas.getObjects().forEach((o: any) => {
-          if ((o as any).layerId === layer.id) {
-            o.set({
-              visible: layer.visible,
-              selectable: !layer.locked,
-              evented: !layer.locked,
-            });
-          }
-        });
-      });
-      fabricCanvas.requestRenderAll();
-    }
-  }, [fabricCanvas, state]); // Run once when both available (and state loaded)
+    });
+
+    fabricCanvas.requestRenderAll();
+  }, [fabricCanvas, state?.objects?.length]); // Re-run when objects array length changes
 
   // Sync Remote Ops
   useEffect(() => {
@@ -1012,7 +1054,7 @@ export function CanvasEditorPage() {
     <div className="relative w-full h-full overflow-hidden bg-[#09090b] text-foreground font-sans touch-none overscroll-none">
       {/* Canvas Container - Now with scroll support for large canvas */}
       <div
-        className="flex-1 bg-zinc-950 overflow-hidden relative p-0 h-full flex items-center justify-center pt-16"
+        className="flex-1 bg-zinc-950 overflow-hidden relative p-0 h-full flex items-center justify-center"
         ref={containerRef}
       >
         <div className="shadow-[0_0_80px_rgba(0,0,0,0.8)] border border-white/10 inline-block bg-white transition-shadow duration-500">
@@ -1020,26 +1062,32 @@ export function CanvasEditorPage() {
         </div>
       </div>
 
-      {/* Floating Toolbar (Left Bottom) - Collapsible */}
+      {/* Floating Toolbar (Left) - Collapsible with vertical scroll */}
       <div
-        className={`fixed left-4 bottom-24 z-20 hidden sm:flex flex-col gap-2 p-2 rounded-2xl bg-black/40 backdrop-blur-xl border border-white/10 shadow-2xl transition-all duration-300 ease-in-out hover:bg-black/50 ${toolbarCollapsed ? "w-12 overflow-hidden" : ""}`}
+        className={`fixed left-4 top-20 z-20 hidden sm:flex flex-col rounded-2xl bg-black/40 backdrop-blur-xl border border-white/10 shadow-2xl transition-all duration-300 ease-in-out hover:bg-black/50 ${
+          toolbarCollapsed
+            ? "w-12 h-min"
+            : "w-[68px] bottom-24 overflow-x-hidden"
+        }`}
       >
-        {/* Collapse Toggle */}
-        <button
-          onClick={() => setToolbarCollapsed(!toolbarCollapsed)}
-          className="p-2 rounded-lg hover:bg-white/10 text-white/50 hover:text-white transition-colors flex items-center justify-center"
-          title={toolbarCollapsed ? "Expand Toolbar" : "Collapse Toolbar"}
-        >
-          {toolbarCollapsed ? (
-            <ChevronRight size={16} />
-          ) : (
-            <ChevronLeft size={16} />
-          )}
-        </button>
-        <div className="h-px w-8 bg-white/10 mx-auto" />
+        {/* Sticky Collapse Toggle - Always visible */}
+        <div className="shrink-0 p-2 border-b border-white/10">
+          <button
+            onClick={() => setToolbarCollapsed(!toolbarCollapsed)}
+            className="p-2 rounded-lg hover:bg-white/10 text-white/50 hover:text-white transition-colors flex items-center justify-center w-full"
+            title={toolbarCollapsed ? "Expand Toolbar" : "Collapse Toolbar"}
+          >
+            {toolbarCollapsed ? (
+              <ChevronRight size={16} />
+            ) : (
+              <ChevronLeft size={16} />
+            )}
+          </button>
+        </div>
 
+        {/* Scrollable Tools Section */}
         {!toolbarCollapsed && (
-          <>
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-2 flex flex-col gap-1">
             <IconButton
               active={tool === "select"}
               onClick={() => setTool("select")}
@@ -1145,7 +1193,7 @@ export function CanvasEditorPage() {
               />
             </div>
 
-            <div className="h-px w-8 bg-white/10 mx-auto my-1" />
+            <div className="h-px w-8 bg-white/10 mx-auto" />
             <label
               className="cursor-pointer p-3 rounded-xl hover:bg-white/10 text-white/70 hover:text-white transition-colors flex items-center justify-center"
               title="Upload Image"
@@ -1159,7 +1207,7 @@ export function CanvasEditorPage() {
               <ImageIcon size={20} />
             </label>
 
-            <div className="h-px w-8 bg-white/10 mx-auto my-1" />
+            <div className="h-px w-8 bg-white/10 mx-auto" />
             <IconButton
               onClick={() => setIsSettingsOpen(true)}
               icon={<Settings size={20} />}
@@ -1174,7 +1222,7 @@ export function CanvasEditorPage() {
                 <Trash2 size={20} />
               </button>
             )}
-          </>
+          </div>
         )}
       </div>
 
