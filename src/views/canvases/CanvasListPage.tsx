@@ -157,30 +157,30 @@ export function CanvasListPage() {
         {/* Header Section */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
               <Link
                 to="/workspaces"
-                className="hover:text-white transition-colors"
+                className="hover:text-foreground transition-colors"
               >
                 Workspaces
               </Link>
               <span>/</span>
-              <span className="text-gray-300 font-medium">
+              <span className="text-foreground font-medium">
                 {workspace?.name || workspaceId}
               </span>
             </div>
-            <h1 className="text-4xl font-bold tracking-tight bg-linear-to-r from-indigo-300 to-purple-400 bg-clip-text text-transparent">
+            <h1 className="text-4xl font-bold tracking-tight text-foreground">
               Canvases
             </h1>
-            <p className="text-gray-400 font-medium max-w-lg">
+            <p className="text-muted-foreground font-medium max-w-lg">
               All your creative works in this workspace.
             </p>
           </div>
 
           <div className="w-full md:w-auto">
-            <div className="flex bg-white/5 border border-white/10 p-1.5 rounded-2xl backdrop-blur-md shadow-2xl focus-within:bg-white/10 transition-colors">
+            <div className="flex bg-muted/50 dark:bg-white/5 border border-border dark:border-white/10 p-1.5 rounded-2xl backdrop-blur-md shadow-2xl focus-within:bg-background dark:focus-within:bg-white/10 transition-colors">
               <input
-                className="bg-transparent border-none outline-none text-white placeholder-white/30 px-4 py-2 w-full md:w-64"
+                className="bg-transparent border-none outline-none text-foreground dark:text-white placeholder-muted-foreground px-4 py-2 w-full md:w-64"
                 placeholder="New canvas name..."
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -231,7 +231,7 @@ export function CanvasListPage() {
               <div key={c.$id} className="relative group">
                 <Link
                   to={`/canvases/${c.$id}`}
-                  className="block h-40 p-6 rounded-3xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all duration-300 backdrop-blur-sm group-hover:shadow-2xl group-hover:shadow-purple-500/10 group-hover:-translate-y-1 overflow-hidden"
+                  className="block h-40 p-6 rounded-3xl bg-card dark:bg-white/5 hover:bg-accent/50 dark:hover:bg-white/10 border border-border dark:border-white/10 transition-all duration-300 backdrop-blur-sm group-hover:shadow-2xl group-hover:shadow-purple-500/10 group-hover:-translate-y-1 overflow-hidden"
                 >
                   <div className="absolute top-0 right-0 p-3 opacity-0 group-hover:opacity-100 transition-opacity">
                     <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/50">
@@ -241,10 +241,10 @@ export function CanvasListPage() {
 
                   <div className="flex flex-col h-full justify-between">
                     <div>
-                      <div className="text-xl font-semibold text-white tracking-wide truncate pr-16">
+                      <div className="text-xl font-semibold text-foreground dark:text-white tracking-wide truncate pr-16">
                         {c.name}
                       </div>
-                      <div className="text-xs text-white/30 mt-2 flex items-center gap-2">
+                      <div className="text-xs text-muted-foreground mt-2 flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-green-500/50"></span>
                         Updated {new Date(c.$updatedAt!).toLocaleDateString()}
                       </div>
@@ -301,7 +301,7 @@ export function CanvasListPage() {
       {/* Edit Modal */}
       {editingCanvas && (
         <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-[#18181b] border border-white/10 rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+          <div className="w-full max-w-md bg-background dark:bg-[#18181b] border border-border dark:border-white/10 rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="p-6 border-b border-white/5 flex items-center justify-between">
               <h3 className="text-xl font-semibold">Rename Canvas</h3>
               <button
@@ -362,7 +362,7 @@ export function CanvasListPage() {
       {/* Delete Confirmation Modal */}
       {deletingCanvas && (
         <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-[#18181b] border border-red-500/20 rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+          <div className="w-full max-w-md bg-background dark:bg-[#18181b] border border-red-500/20 rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="p-8 text-center space-y-4">
               <div className="mx-auto w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 mb-2">
                 <AlertTriangle size={32} />
